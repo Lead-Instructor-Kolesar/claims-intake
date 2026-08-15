@@ -1,0 +1,568 @@
+[
+  {
+    "policy_number": "MOT-4471",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-03-01",
+    "expiry_date": "2027-02-28",
+    "cancellation_date": null,
+    "limit": "50000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4472",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-11-01",
+    "expiry_date": "2026-10-31",
+    "cancellation_date": null,
+    "limit": "40000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4473",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-01-15",
+    "expiry_date": "2027-01-14",
+    "cancellation_date": null,
+    "limit": "25000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4474",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-09-01",
+    "expiry_date": "2026-08-31",
+    "cancellation_date": null,
+    "limit": "60000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4475",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-02-01",
+    "expiry_date": "2027-01-31",
+    "cancellation_date": null,
+    "limit": "35000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4476",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-12-01",
+    "expiry_date": "2026-11-30",
+    "cancellation_date": null,
+    "limit": "75000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4477",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-01-01",
+    "expiry_date": "2026-12-31",
+    "cancellation_date": null,
+    "limit": "45000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4478",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-10-15",
+    "expiry_date": "2026-10-14",
+    "cancellation_date": null,
+    "limit": "30000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4479",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-03-15",
+    "expiry_date": "2027-03-14",
+    "cancellation_date": null,
+    "limit": "55000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4480",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-08-01",
+    "expiry_date": "2026-07-31",
+    "cancellation_date": null,
+    "limit": "20000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4481",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2026-02-15",
+    "expiry_date": "2027-02-14",
+    "cancellation_date": null,
+    "limit": "30000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4482",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2025-11-15",
+    "expiry_date": "2026-11-14",
+    "cancellation_date": null,
+    "limit": "25000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4483",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2026-01-01",
+    "expiry_date": "2026-12-31",
+    "cancellation_date": null,
+    "limit": "40000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4484",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2025-07-01",
+    "expiry_date": "2026-06-30",
+    "cancellation_date": null,
+    "limit": "22000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4485",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2026-03-01",
+    "expiry_date": "2027-02-28",
+    "cancellation_date": null,
+    "limit": "35000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4486",
+    "product": "personal_auto_liability_only",
+    "effective_date": "2026-01-10",
+    "expiry_date": "2027-01-09",
+    "cancellation_date": null,
+    "limit": "100000.00",
+    "permitted_claim_types": [
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4487",
+    "product": "personal_auto_liability_only",
+    "effective_date": "2025-10-01",
+    "expiry_date": "2026-09-30",
+    "cancellation_date": null,
+    "limit": "100000.00",
+    "permitted_claim_types": [
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4488",
+    "product": "personal_auto_liability_only",
+    "effective_date": "2026-02-20",
+    "expiry_date": "2027-02-19",
+    "cancellation_date": null,
+    "limit": "75000.00",
+    "permitted_claim_types": [
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4489",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-03-01",
+    "expiry_date": "2026-02-28",
+    "cancellation_date": null,
+    "limit": "50000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4490",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-03-16",
+    "expiry_date": "2026-03-15",
+    "cancellation_date": null,
+    "limit": "30000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4491",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2025-02-01",
+    "expiry_date": "2026-01-31",
+    "cancellation_date": null,
+    "limit": "25000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4492",
+    "product": "personal_auto_liability_only",
+    "effective_date": "2025-04-01",
+    "expiry_date": "2026-03-31",
+    "cancellation_date": null,
+    "limit": "100000.00",
+    "permitted_claim_types": [
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4493",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-04-15",
+    "expiry_date": "2027-04-14",
+    "cancellation_date": null,
+    "limit": "50000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4494",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-05-01",
+    "expiry_date": "2027-04-30",
+    "cancellation_date": null,
+    "limit": "65000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4495",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2026-04-20",
+    "expiry_date": "2027-04-19",
+    "cancellation_date": null,
+    "limit": "28000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4496",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-09-01",
+    "expiry_date": "2026-08-31",
+    "cancellation_date": "2026-02-01",
+    "limit": "40000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4497",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-06-01",
+    "expiry_date": "2026-05-31",
+    "cancellation_date": "2026-01-15",
+    "limit": "50000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4498",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2025-05-01",
+    "expiry_date": "2026-04-30",
+    "cancellation_date": "2025-12-01",
+    "limit": "30000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4499",
+    "product": "personal_auto_liability_only",
+    "effective_date": "2025-08-15",
+    "expiry_date": "2026-08-14",
+    "cancellation_date": "2026-03-01",
+    "limit": "100000.00",
+    "permitted_claim_types": [
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4500",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-01-01",
+    "expiry_date": "2025-12-31",
+    "cancellation_date": "2025-10-01",
+    "limit": "45000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4501",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-01-01",
+    "expiry_date": "2026-12-31",
+    "cancellation_date": null,
+    "limit": "50000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4502",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-02-01",
+    "expiry_date": "2027-01-31",
+    "cancellation_date": null,
+    "limit": "10000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4503",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-12-15",
+    "expiry_date": "2026-12-14",
+    "cancellation_date": null,
+    "limit": "38000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4504",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-02-10",
+    "expiry_date": "2027-02-09",
+    "cancellation_date": null,
+    "limit": "42000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4505",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2025-10-20",
+    "expiry_date": "2026-10-19",
+    "cancellation_date": null,
+    "limit": "26000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4506",
+    "product": "personal_auto_standard",
+    "effective_date": "2026-01-20",
+    "expiry_date": "2027-01-19",
+    "cancellation_date": null,
+    "limit": "58000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4507",
+    "product": "personal_auto_liability_only",
+    "effective_date": "2025-11-05",
+    "expiry_date": "2026-11-04",
+    "cancellation_date": null,
+    "limit": "75000.00",
+    "permitted_claim_types": [
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4508",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-07-15",
+    "expiry_date": "2026-07-14",
+    "cancellation_date": null,
+    "limit": "33000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  },
+  {
+    "policy_number": "MOT-4509",
+    "product": "personal_auto_named_perils",
+    "effective_date": "2026-03-10",
+    "expiry_date": "2027-03-09",
+    "cancellation_date": null,
+    "limit": "31000.00",
+    "permitted_claim_types": [
+      "theft",
+      "glass",
+      "weather",
+      "liability"
+    ]
+  },
+  {
+    "policy_number": "MOT-4510",
+    "product": "personal_auto_standard",
+    "effective_date": "2025-09-25",
+    "expiry_date": "2026-09-24",
+    "cancellation_date": null,
+    "limit": "47000.00",
+    "permitted_claim_types": [
+      "collision",
+      "theft",
+      "glass",
+      "liability",
+      "weather"
+    ]
+  }
+]
