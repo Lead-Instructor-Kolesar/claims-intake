@@ -141,11 +141,33 @@ Two of the guarantees this work claims are enforced by the type checker rather t
 | --- | --- | --- |
 | A comparison against `cancellation_date` that does not handle absence fails type checking (WI-0158 AC-3) | `request.loss_date < policy.cancellation_date` | `Unsupported operand types for < ("date" and "None")` |
 | A rule identifier can never be passed where an error code is expected | `RuleFailure(rule="POLICY_CANCELLED", code="V-7")` | Both arguments rejected: `rule` expects `Literal["V-0"..."V-7"]`, `code` expects the section 6 enumeration |
+| The same transposition is impossible on the path that actually refuses | `ValidationOutcome.failed(rule="POLICY_CANCELLED", code="V-7")` | Both arguments rejected, for the same two reasons |
+| A code section 6 does not list cannot be returned at all | `ValidationOutcome.failed(rule="V-7", code="TOTALLY_MADE_UP")` | `code` rejected; the contract enumeration is the type |
 
-The second check found a real defect. `RuleFailure` originally declared both fields as `str`, which made the two fields separate in name only: the swapped construction above type-checked and would have reported the rule label `V-7` to a caller branching on `code`. The fields now carry distinct `Literal` types, `RuleId` and `ErrorCode`, drawn from section 4 and section 6 respectively.
+The second check found a real defect, and following it up found a larger one.
 
-`ErrorCode` doubles as the enumeration of section 6, so a code the contract does not list is not constructible. Whether the rule engine actually routes its refusals through `RuleFailure`, rather than reproducing the two loose strings, is a question about `service.py` and belongs to Day 3.
+`RuleFailure` originally declared both fields as `str`, which made the two fields separate in name only: the swapped construction above type-checked and would have reported the rule label `V-7` to a caller branching on `code`. The fields now carry distinct `Literal` types, `RuleId` and `ErrorCode`, drawn from section 4 and section 6 respectively.
+
+That fix alone was not worth much, because the rule engine did not use `RuleFailure`. `ValidationOutcome` stored its own `rule: str | None` and `code: str | None`, so every refusal the service actually produced bypassed the type built to make refusals safe, and the transposition remained available on the only path where it could reach a caller. `ValidationOutcome` now stores a `RuleFailure` and derives `rule` and `code` from it as read-only properties, which keeps the contract vocabulary readable at the call sites while leaving one construction path, typed. Two tests pin this at runtime as well as in the type checker: a refusal carries the expected `RuleFailure`, and a passing outcome carries none.
+
+`ErrorCode` doubles as the enumeration of section 6, so a code the contract does not list is not constructible, and a test asserts the HTTP layer's status mapping covers exactly that set.
 
 ### One naming conflict between the starter and the interface contract
 
 The record type is named `ClaimRecord` in the C2 interface contract and `RecordedNotification` in the starter's `models.py` stub, which the shipped `service.py` stub imported. The two cannot both be the name, and the choice is not cosmetic: C2 is the interface Day 3 and Day 4 were written against, so the contract name wins and `ClaimRecord` is what the source and the tests use throughout. `RecordedNotification` stays bound to the same class in `models.py`, so code carrying the starter's signature still resolves rather than failing at import. The alias is the only place in the codebase where the old name appears.
+
+## Day 3 reconciliation: the rule engine against the classification above
+
+Checked by running the rule engine over every payload in all three data files and comparing the rule and code it returned against the classification table at the top of this document. The comparison is not a manual reading: `tests/unit/test_service.py` parametrises on the payload identifier and asserts the rule identifier and the code, so the table and the code cannot drift without a test failing.
+
+| What was checked | How | Outcome |
+| --- | --- | --- |
+| The rule each rejected payload stops at | Parametrised cases over EDGE-04 through EDGE-10 and INVALID-01 through INVALID-07, asserting `outcome.rule` and `outcome.code` | Matches the table above for every payload |
+| The three inclusive boundaries (`V-2`, `V-3`, `V-4`) | Three cases per rule: one unit below, one exactly on, one above | On the boundary is covered, as sections 4.2 and WI-0142 AC-3 require |
+| The strict boundary (`V-7`) | Day before cancellation passes, on the date fails, after fails, `null` does not apply | Matches WI-0158 AC-2 and AC-3 |
+| Stage order where two rules are violated | EDGE-05 returns `LOSS_BEFORE_INCEPTION` and not `AMOUNT_EXCEEDS_LIMIT`; EDGE-10 returns `POLICY_CANCELLED` and not `LOSS_AFTER_EXPIRY` | Matches section 4.1 and WI-0158 AC-4 |
+| The `detail` keys each code carries | One case per code asserting the exact key set against the section 6.2 row | Every documented key present, no undocumented key |
+
+**Two things the rule engine does not decide.** A dependency failure is not caught by `V-1`, so `PolicyLookupFailed` propagates and the HTTP layer chooses between 504, 503 and 502. And no rule reads a status code, because section 6 maps a code to a status at the boundary.
+
+**Result.** No contract change. Section 4 already determined every case the payload files contain, which is what Day 1's three determinations were for.
