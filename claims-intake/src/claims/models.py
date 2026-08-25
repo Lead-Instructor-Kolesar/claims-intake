@@ -10,11 +10,27 @@ Day 2 assignment. Implement these against `docs/api-contract.md` sections 2 and 
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, NewType
 
 from pydantic import BaseModel, ConfigDict, Field
+
+RuleId = NewType("RuleId", str)
+ErrorCode = NewType("ErrorCode", str)
+
+
+@dataclass(frozen=True)
+class RuleFailure:
+    """A rule that did not pass.
+
+    `rule` and `code` are distinct types so a rule identifier cannot be passed
+    where an error code is expected.
+    """
+
+    rule: RuleId
+    code: ErrorCode
 
 
 class NotificationRequest(BaseModel):
@@ -44,7 +60,7 @@ class Policy(BaseModel):
     Built from the `PolicyRecord` the policy client returns. The fields the rules
     compare against are the reason this model exists.
 
-    Day 2 assignment: declare the fields.
+    `cancellation_date` is `None` when the policy was not cancelled (WI-0158 AC-3).
     """
 
     policy_number: str
@@ -65,10 +81,13 @@ class RecordedNotification(BaseModel):
     Day 2 assignment: declare the fields.
     """
 
-    claim_reference: str
+    claim_reference: str = Field(pattern=r"^CLM-\d{4}-\d{6}$")
     status: str
     policy_number: str
     loss_date: date
     claim_type: str
     estimated_amount: Decimal
     description: str | None = None
+
+
+ClaimRecord = RecordedNotification

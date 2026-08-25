@@ -72,3 +72,9 @@ A decision recorded here and nowhere else has not been made. Amend `docs/api-con
 **Rejected alternative.** Rounding `3499.999` to `3500.00` (or truncating to `3499.99`) and continuing to the rule table.
 
 **Contract amended.** Section 2.2 (`estimated_amount` notes) and section 6: more than two decimal places is `INVALID_REQUEST`.
+
+## Day 2 reconciliation
+
+Nothing missing from section 6. Every `NotificationRequest` refusal is already `INVALID_REQUEST` (400).
+
+Checked by running `tests/unit/test_models.py` against section 6.
