@@ -47,28 +47,28 @@ A decision recorded here and nowhere else has not been made. Amend `docs/api-con
 
 ### Decision 2
 
-**Payload.** EDGE-04
+**Payload.** EDGE-07
 
-**The ambiguity.** Whether a loss on the exact cancellation date is covered.
+**The ambiguity.** Whether a `policy_number` that differs from the master only in case (`mot-4471` versus `MOT-4471`) is the same identifier.
 
-**Decision.** Not covered. V-7 is written with a strict `<`.
+**Decision.** Match is case-sensitive. `mot-4471` does not exist in the policy master. V-1 fails with `POLICY_NOT_FOUND` and status 422.
 
-**Authority.** WI-0158 AC-2 / product rule PR-19.
+**Authority.** Section 2.2: `policy_number` is the identifier as held in the policy master. V-1 tests existence of that identifier. Section 2.4: the request was interpreted; the data is not admissible.
 
-**Rejected alternative.** Using `<=`, which would treat the cancellation date as still in cover.
+**Rejected alternative.** Case-insensitive lookup, which would treat `mot-4471` as `MOT-4471` and evaluate the remaining rules.
 
-**Contract amended.** Section 4.2 (V-7) and the boundary note under the table.
+**Contract amended.** Section 2.2 (`policy_number` notes), V-1, and section 6: lookup is an exact, case-sensitive match.
 
 ### Decision 3
 
-**Payload.** EDGE-10
+**Payload.** EDGE-12
 
-**The ambiguity.** When a policy is both cancelled and past its original expiry date, which error should be returned.
+**The ambiguity.** Whether an `estimated_amount` with three decimal places (`3499.999`) is rounded or truncated to two places, or cannot be interpreted.
 
-**Decision.** Return `POLICY_CANCELLED` (V-7). Cancellation is listed before expiry in section 4.2, and section 4.1 evaluates in table order.
+**Decision.** More than two decimal places is `INVALID_REQUEST` and status 400. The service does not round or truncate.
 
-**Authority.** WI-0158 AC-4.
+**Authority.** Section 2.2: `estimated_amount` is United States dollars, two decimal places. Section 2.4: a field that carries a value of the wrong type cannot be interpreted and is 400.
 
-**Rejected alternative.** Evaluating in identifier order, which would run expiry (V-3) before cancellation (V-7) and return `LOSS_AFTER_EXPIRY`.
+**Rejected alternative.** Rounding `3499.999` to `3500.00` (or truncating to `3499.99`) and continuing to the rule table.
 
-**Contract amended.** Section 4.1 (table order, not identifier order) and the listing of V-7 before V-3 in section 4.2.
+**Contract amended.** Section 2.2 (`estimated_amount` notes) and section 6: more than two decimal places is `INVALID_REQUEST`.

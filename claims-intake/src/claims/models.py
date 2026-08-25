@@ -10,7 +10,11 @@ Day 2 assignment. Implement these against `docs/api-contract.md` sections 2 and 
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from datetime import date
+from decimal import Decimal
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class NotificationRequest(BaseModel):
@@ -26,7 +30,12 @@ class NotificationRequest(BaseModel):
     one, is Day 2's work.
     """
 
-    policy_number: str
+    policy_number: str = Field(min_length=1)
+    loss_date: date
+    claim_type: Literal["collision", "theft", "glass", "liability", "weather"]
+    estimated_amount: Decimal = Field(gt=0, decimal_places=2)
+    description: str | None = None
+    model_config = ConfigDict(extra="forbid")
 
 
 class Policy(BaseModel):
@@ -38,6 +47,14 @@ class Policy(BaseModel):
     Day 2 assignment: declare the fields.
     """
 
+    policy_number: str
+    product: str
+    effective_date: date
+    expiry_date: date
+    cancellation_date: date | None
+    limit: Decimal
+    permitted_claim_types: tuple[str, ...]
+
 
 class RecordedNotification(BaseModel):
     """A notification that passed every rule and was written.
@@ -47,3 +64,11 @@ class RecordedNotification(BaseModel):
 
     Day 2 assignment: declare the fields.
     """
+
+    claim_reference: str
+    status: str
+    policy_number: str
+    loss_date: date
+    claim_type: str
+    estimated_amount: Decimal
+    description: str | None = None

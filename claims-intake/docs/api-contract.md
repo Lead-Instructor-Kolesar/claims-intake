@@ -32,10 +32,10 @@ Content-Type: application/json
 
 | Field              | Type    | Required | Notes                                                         |
 | ------------------ | ------- | -------- | ------------------------------------------------------------- |
-| `policy_number`    | string  | yes      | Identifier as held in the policy master. Not empty.           |
+| `policy_number`    | string  | yes      | Identifier as held in the policy master. Not empty. Match is case-sensitive. |
 | `loss_date`        | string  | yes      | Calendar date, `YYYY-MM-DD`.                                  |
 | `claim_type`       | string  | yes      | One of the values in 2.3. Not empty.                          |
-| `estimated_amount` | decimal | yes      | United States dollars, two decimal places. Greater than zero. |
+| `estimated_amount` | decimal | yes      | United States dollars, two decimal places. Greater than zero. Extra fractional digits are not rounded or truncated. |
 | `description`      | string  | no       | Free text. Absent and `null` are equivalent.                  |
 
 
@@ -92,7 +92,7 @@ is both cancelled and out of term returns `POLICY_CANCELLED`, not
 
 | ID  | Condition                                                                                         | Code                     | Status |
 | --- | ------------------------------------------------------------------------------------------------- | ------------------------ | ------ |
-| V-1 | `policy_number` exists in the policy master                                                       | `POLICY_NOT_FOUND`       | 422    |
+| V-1 | `policy_number` exists in the policy master as an exact, case-sensitive match                     | `POLICY_NOT_FOUND`       | 422    |
 | V-6 | no recorded notification with `policy_number`, `loss_date`, and `claim_type` equal to the request | `DUPLICATE_NOTIFICATION` | 409    |
 | V-2 | `loss_date` >= policy `effective_date`                                                            | `LOSS_BEFORE_INCEPTION`  | 422    |
 | V-7 | policy `cancellation_date` is null or `loss_date` < policy `cancellation_date`                    | `POLICY_CANCELLED`       | 422    |
@@ -196,3 +196,7 @@ answered and holds no match: 422) and the three downstream failures
 nothing wrong.
 
 A `claim_type` outside the section 2.3 vocabulary is `INVALID_REQUEST` (400), not `TYPE_NOT_COVERED`. V-5 runs only for values the vocabulary defines.
+
+A `policy_number` that differs from the stored identifier only in case is `POLICY_NOT_FOUND` (422). Lookup does not fold case.
+
+An `estimated_amount` with more than two decimal places is `INVALID_REQUEST` (400). The service does not round or truncate.
