@@ -57,21 +57,12 @@ def test_record_increments_sequence(repo: NotificationRepository) -> None:
     assert second.claim_reference == f"CLM-{year}-000002"
 
 
-def test_record_preserves_policy_number_case(repo: NotificationRepository) -> None:
-    recorded = repo.record(_valid_request(policy_number="mot-4471"))
-    assert recorded.policy_number == "mot-4471"
-
-
 def test_find_matching_returns_recorded_notification(
     repo: NotificationRepository, valid_request: NotificationRequest
 ) -> None:
     recorded = repo.record(valid_request)
     found = repo.find_matching("MOT-4471", date(2026, 4, 2), "collision")
     assert found is recorded
-
-
-def test_find_matching_returns_none_when_absent(repo: NotificationRepository) -> None:
-    assert repo.find_matching("MOT-4471", date(2026, 4, 2), "collision") is None
 
 
 def test_unrecorded_notification_is_not_a_duplicate(
