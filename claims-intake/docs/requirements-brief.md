@@ -48,7 +48,7 @@ AC-3  A notification matching a previous submission that was rejected
       to duplicate.
 
 Contract: docs/api-contract.md, section 4.2
-Status:   Open.
+Status:   Converted. Rule V-6.
 ```
 
 ```
@@ -75,5 +75,5 @@ AC-4  Where a policy is cancelled and the loss also falls outside
       them to the wrong system to investigate.
 
 Contract: docs/api-contract.md, section 4.2
-Status:   Open.
+Status:   Converted. Rule V-7.
 ```
