@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from claims.policy_client import StubPolicyClient
+from claims.repository import NotificationRepository
 
 
 @pytest.fixture
@@ -20,3 +21,9 @@ def policy_client() -> StubPolicyClient:
     lookup failures.
     """
     return StubPolicyClient()
+
+
+@pytest.fixture
+def repository() -> NotificationRepository:
+    """An empty in-memory store. Fresh on every test so order cannot leak state."""
+    return NotificationRepository()

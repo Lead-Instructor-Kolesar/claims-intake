@@ -6,20 +6,20 @@ Fill one row per payload. Where a payload is accepted, leave the rule, code, and
 
 ## Classification
 
-| Payload | Outcome  | Rule  | Code                     | Status |
-| ------- | -------- | ----- | ------------------------ | ------ |
-| EDGE-01 | Accepted | -     | -                        | 201    |
-| EDGE-02 | Accepted | -     | -                        | 201    |
-| EDGE-03 | Accepted | -     | -                        | 201    |
-| EDGE-04 | Rejected | `V-7` | `POLICY_CANCELLED`       | 422    |
-| EDGE-05 | Rejected | `V-2` | `LOSS_BEFORE_INCEPTION`  | 422    |
-| EDGE-06 | Rejected | `V-4` | `AMOUNT_EXCEEDS_LIMIT`   | 422    |
-| EDGE-07 | Rejected | `V-1` | `POLICY_NOT_FOUND`       | 422    |
-| EDGE-08 | Rejected | `V-0` | `SCHEMA_INVALID`         | 400    |
-| EDGE-09 | Rejected | `V-5` | `TYPE_NOT_COVERED`       | 422    |
-| EDGE-10 | Rejected | `V-7` | `POLICY_CANCELLED`       | 422    |
-| EDGE-11 | Rejected | `V-0` | `SCHEMA_INVALID`         | 400    |
-| EDGE-12 | Rejected | `V-0` | `SCHEMA_INVALID`         | 400    |
+| Payload | Outcome  | Rule  | Code                    | Status |
+| ------- | -------- | ----- | ----------------------- | ------ |
+| EDGE-01 | Accepted | -     | -                       | 201    |
+| EDGE-02 | Accepted | -     | -                       | 201    |
+| EDGE-03 | Accepted | -     | -                       | 201    |
+| EDGE-04 | Rejected | `V-7` | `POLICY_CANCELLED`      | 422    |
+| EDGE-05 | Rejected | `V-2` | `LOSS_BEFORE_INCEPTION` | 422    |
+| EDGE-06 | Rejected | `V-4` | `AMOUNT_EXCEEDS_LIMIT`  | 422    |
+| EDGE-07 | Rejected | `V-1` | `POLICY_NOT_FOUND`      | 422    |
+| EDGE-08 | Rejected | `V-0` | `SCHEMA_INVALID`        | 400    |
+| EDGE-09 | Rejected | `V-5` | `TYPE_NOT_COVERED`      | 422    |
+| EDGE-10 | Rejected | `V-7` | `POLICY_CANCELLED`      | 422    |
+| EDGE-11 | Rejected | `V-0` | `SCHEMA_INVALID`        | 400    |
+| EDGE-12 | Rejected | `V-0` | `SCHEMA_INVALID`        | 400    |
 
 Every rule identifier above is defined in `docs/api-contract.md`: `V-0` in section 4.3, `V-1` through `V-7` in the table in section 4.2. Every code above appears in the mapping in section 6.
 
@@ -89,7 +89,7 @@ A decision recorded here and nowhere else has not been made. Amend `docs/api-con
 
 **Payload.** EDGE-12, `estimated_amount` of `3499.999`.
 
-**The ambiguity.** Section 2.2 gave `estimated_amount` as "decimal, United States dollars, two decimal places. Greater than zero." It did not say whether "two decimal places" is a constraint the service enforces on input or a description of how money is represented, and the contract stated no consequence for a value with a different scale. Three readings were available: refuse the request as uninterpretable (400), round or truncate to two places and continue evaluating with the adjusted value (which here yields 3500.00, within the 75000.00 limit on `MOT-4476`, and 201), or treat the scale as a content problem and refuse with 422. Nothing in the document ruled any of them out, so the payload had no determined outcome.
+**The ambiguity.** Section 2.2 gave `estimated_amount` as "decimal, United States dollars, two decimal places. Greater than zero." It did not say whether "two decimal places" is a constraint the service enforces on input or a description of how money is represented, and the contract stated no consequence for a value with a different scale. Three readings were available: refuse the request as uninterpretable (400), round or truncate to two places and continue evaluating with the adjusted value (which here yields 3500.00, within the 75000.00 limit, and 201), or treat the scale as a content problem and refuse with 422. Nothing in the document ruled any of them out, so the payload had no determined outcome.
 
 **Decision.** `estimated_amount` must carry no more than two decimal places. A value with a finer scale fails stage 0 (`V-0`) and is refused with `SCHEMA_INVALID` and status 400. The service does not round, truncate, or otherwise adjust a monetary value. EDGE-12 is refused at 400 and `MOT-4476` is never read.
 
@@ -98,3 +98,54 @@ A decision recorded here and nowhere else has not been made. Amend `docs/api-con
 **Rejected alternative.** Round to the nearest cent and accept, recording 3500.00. This is wrong for a reason stronger than preference: the service would write a monetary figure that no caller ever submitted, and `estimated_amount` is not decoration. It is the figure `V-4` is compared against, and it is the figure downstream reserving reads. A payload of `3499.999` against a limit of `3500.00` would be accepted after rounding to a value equal to the limit, so rounding does not merely alter a recorded number, it changes which side of a rule boundary a notification falls on — and the direction of rounding was itself unspecified, so two conforming implementations could return 201 and 422 for the identical payload. That is precisely the failure mode this contract exists to prevent. Refusing at 400 costs the caller one corrected submission and leaves the recorded figure exactly what was sent.
 
 **Contract amended.** Section 4.3 lists a scale greater than two decimal places as stage 0 violation 7, and lists a zero or negative amount as violation 8 for the same reason. The same section fixes `estimated_amount` as a JSON string holding a decimal numeral, so that "more than two decimal places" is a test the implementer can apply without inventing a representation. Section 4.4 records the decision and the no-rounding rule as determination **D-3**.
+
+## Day 2 reconciliation: model rejections against section 6
+
+Checked by enumerating every `ValidationError` `NotificationRequest` and `Policy` can raise, mapping each one to a bullet in section 4.3 or to the policy-master boundary in 6.3, and confirming that bullet already has a code and status in section 6. The models do not emit codes themselves; they refuse by failing to construct. The code the service will return is the one section 6 already names for that refusal.
+
+### `NotificationRequest` — every refusal is `V-0` / `SCHEMA_INVALID` / 400
+
+| What the model refuses | Section 4.3 | Section 6.2 |
+| --- | --- | --- |
+| Required field absent or `null` (`policy_number`, `loss_date`, `claim_type`, `estimated_amount`) | Violation 1 | `SCHEMA_INVALID` 400 |
+| Wrong JSON type (including a non-string `policy_number` or `description`) | Violation 2 | `SCHEMA_INVALID` 400 |
+| Field not listed in section 2.2 | Violation 3 | `SCHEMA_INVALID` 400 |
+| `policy_number` empty or whitespace-only (value not trimmed; D-1) | Violation 4 | `SCHEMA_INVALID` 400 |
+| `loss_date` not `YYYY-MM-DD`, or not a real calendar date | Violation 5 | `SCHEMA_INVALID` 400 |
+| `claim_type` outside the section 2.3 vocabulary | Violation 6 / D-2 | `SCHEMA_INVALID` 400 |
+| `estimated_amount` with more than two decimal places | Violation 7 / D-3 | `SCHEMA_INVALID` 400 |
+| `estimated_amount` zero or negative | Violation 8 | `SCHEMA_INVALID` 400 |
+
+`MALFORMED_JSON` is not a model outcome. The body never becomes a dict, so `NotificationRequest` is never asked to parse it. That code stays a transport concern for Day 4 and is already in 6.2.
+
+### `Policy` — unparsable master records are `POLICY_MASTER_INVALID_RESPONSE` / 502
+
+| What the model refuses | Contract home | Section 6.3 |
+| --- | --- | --- |
+| `cancellation_date` omitted (as opposed to present and `null`) | 4.2 V-7 boundaries, WI-0158 AC-3 | `POLICY_MASTER_INVALID_RESPONSE` 502 |
+| Missing required field, extra field, wrong type, or `permitted_claim_types` outside the vocabulary | 6.3 "answered with something the service cannot parse" | `POLICY_MASTER_INVALID_RESPONSE` 502 |
+
+These are not `SCHEMA_INVALID`. The request was well formed; the policy master broke its own record shape.
+
+### What was not a gap
+
+`ClaimRecord` will refuse an ill-formed `claim_reference`. That is an internal invariant on values this service issues (section 3). It is not a caller-facing refusal and does not belong in section 6.
+
+**Result.** Nothing was added to `docs/api-contract.md` section 6. Every refusal the models can produce already has a code and status: request-shape failures as `SCHEMA_INVALID` (400), unparsable policy records as `POLICY_MASTER_INVALID_RESPONSE` (502).
+
+### How the two type-level guarantees were verified
+
+Two of the guarantees this work claims are enforced by the type checker rather than by a test, so asserting them in the test suite would prove nothing: a test can only observe what happens at runtime, and both of these are supposed to fail before the code runs. They were checked by writing a file that deliberately violates each one and confirming `mypy` rejects it. The file is not committed, because a file that fails type checking would stop `mypy` exiting zero.
+
+| Guarantee | The line that must not compile | What mypy reported |
+| --- | --- | --- |
+| A comparison against `cancellation_date` that does not handle absence fails type checking (WI-0158 AC-3) | `request.loss_date < policy.cancellation_date` | `Unsupported operand types for < ("date" and "None")` |
+| A rule identifier can never be passed where an error code is expected | `RuleFailure(rule="POLICY_CANCELLED", code="V-7")` | Both arguments rejected: `rule` expects `Literal["V-0"..."V-7"]`, `code` expects the section 6 enumeration |
+
+The second check found a real defect. `RuleFailure` originally declared both fields as `str`, which made the two fields separate in name only: the swapped construction above type-checked and would have reported the rule label `V-7` to a caller branching on `code`. The fields now carry distinct `Literal` types, `RuleId` and `ErrorCode`, drawn from section 4 and section 6 respectively.
+
+`ErrorCode` doubles as the enumeration of section 6, so a code the contract does not list is not constructible. Whether the rule engine actually routes its refusals through `RuleFailure`, rather than reproducing the two loose strings, is a question about `service.py` and belongs to Day 3.
+
+### One naming conflict between the starter and the interface contract
+
+The record type is named `ClaimRecord` in the C2 interface contract and `RecordedNotification` in the starter's `models.py` stub, which the shipped `service.py` stub imported. The two cannot both be the name, and the choice is not cosmetic: C2 is the interface Day 3 and Day 4 were written against, so the contract name wins and `ClaimRecord` is what the source and the tests use throughout. `RecordedNotification` stays bound to the same class in `models.py`, so code carrying the starter's signature still resolves rather than failing at import. The alias is the only place in the codebase where the old name appears.
