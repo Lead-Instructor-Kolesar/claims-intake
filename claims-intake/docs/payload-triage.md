@@ -172,6 +172,8 @@ Checked by running the rule engine over every payload in all three data files an
 
 **Result.** No contract change. Section 4 already determined every case the payload files contain, which is what Day 1's three determinations were for.
 
+The rule functions were first filled in before their tests existed. They were then put back to `NotImplementedError` and each rule was driven green from `tests/unit/test_service.py` in stage order (V-7, V-2, V-3, V-4, V-5, V-6), then `evaluate_notification`, then `submit_notification`. The behaviour did not change; the tests now precede the implementation they pin.
+
 ## Day 4 reconciliation: the HTTP surface against sections 5 and 6
 
 Checked by enumerating every response `POST /notifications` can produce, then asserting each one over HTTP in `tests/integration/test_notifications_api.py`. One gap was found and closed.
