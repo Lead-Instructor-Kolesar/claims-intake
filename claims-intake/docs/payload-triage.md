@@ -171,3 +171,42 @@ Checked by running the rule engine over every payload in all three data files an
 **Two things the rule engine does not decide.** A dependency failure is not caught by `V-1`, so `PolicyLookupFailed` propagates and the HTTP layer chooses between 504, 503 and 502. And no rule reads a status code, because section 6 maps a code to a status at the boundary.
 
 **Result.** No contract change. Section 4 already determined every case the payload files contain, which is what Day 1's three determinations were for.
+
+## Day 4 reconciliation: the HTTP surface against sections 5 and 6
+
+Checked by enumerating every response `POST /notifications` can produce, then asserting each one over HTTP in `tests/integration/test_notifications_api.py`. One gap was found and closed.
+
+| Response the service produces | Contract home | Asserted over HTTP |
+| --- | --- | --- |
+| 201 with `claim_reference` and `status` | Section 3 | Reference matches `CLM-YYYY-NNNNNN`; references unique across records |
+| The eight rule and interpretation codes | Section 6.2 | Status and `code` per payload, plus the exact `detail` key set per code |
+| `MALFORMED_JSON` | Section 4.3 | Unparseable bytes, and a body that parses but is not a JSON object |
+| `UNSUPPORTED_MEDIA_TYPE` | Section 6.4 | Three non-JSON content types; `application/json; charset=utf-8` still accepted |
+| `METHOD_NOT_ALLOWED` | Section 6.4 | GET, PUT, PATCH and DELETE on `/notifications` |
+| The three policy master codes | Section 6.3 | `StubPolicyClient(fail_with=...)` for each reason, asserting status, `reason` and `retryable` |
+| `INTERNAL_ERROR` | Section 6.4 | A dependency raising an unspecified exception; `detail` carries `correlation_id` and nothing else |
+
+**The gap.** Section 5.1 requires every response that is not 201 to carry the error envelope. A request to a path the service does not define is such a response, and section 6 named no code for it, so the only options were to answer outside the envelope or to return a code the contract does not list. Both break an invariant a caller was told to rely on.
+
+**What was added.** `NOT_FOUND` (404) in section 6.4, with an empty `detail` and a note distinguishing it from `POLICY_NOT_FOUND` (422); 404 added to the status set in 6.5; the contract raised to version 0.6. Adding a code is a compatible change under section 1, and callers were already required to have a default branch for a code they do not recognise.
+
+**How the completeness of the check was established.** Two assertions rather than a claim. `STATUS_BY_CODE` in `api/routes.py` is the single mapping the HTTP layer uses, and every entry in it is a row of section 6, so a code with no contract row could not be returned. And a test posts every payload in `data/fnol_edge.json` and asserts the observed statuses are a subset of the section 6.5 set, so a status outside the contract fails the suite rather than reaching a caller.
+
+**One thing deliberately not asserted.** No test asserts on `message`. Section 5.2 states its wording is not a promise, so a test that pinned it would be testing something the contract does not maintain.
+
+## Reconciliation across all four days: the implementation was first built against a stale copy of C1
+
+Worth recording because it is the largest thing this reconciliation caught, and because the check that caught it is cheap and was nearly skipped.
+
+The working copy of `docs/api-contract.md` these modules were first written against was an earlier draft than the C1 committed on the `day1-contract` branch. Comparing the two paragraph by paragraph, rather than trusting that the file on disk was the deliverable, showed the draft was missing four statements C1 makes, and the code had faithfully implemented their absence:
+
+| What C1 says that the draft did not | What the code did | Now |
+| --- | --- | --- |
+| Section 4.3: money is carried as a JSON **string**; a JSON number is violation 2 | Accepted `"estimated_amount": 3499.99` and recorded it, so money arrived as a binary float and `V-4` compared an inexact operand | `estimated_amount` and the policy `limit` refuse anything but a decimal numeral in a string, or an exact `Decimal` |
+| Section 6.4: `UNSUPPORTED_MEDIA_TYPE` carries `received` and `expected` | Sent `detail: {}` | Both keys sent; `received` is `null` where no `Content-Type` was sent, which the contract now states |
+| Section 6.4: `METHOD_NOT_ALLOWED` carries `method` and `allowed`, and the response carries the `Allow` header | Sent `detail: {}` and no header | Both keys sent, and `Allow: POST` |
+| Section 6.3: `retryable` is true under `POLICY_MASTER_UNAVAILABLE` | Sent `false`, and a test asserted the wrong value | `true`, and the test now asserts what the contract says |
+
+The `retryable` case is the one worth dwelling on, because the test suite was green throughout. A test had been written to match the implementation instead of the document, so it locked the defect in rather than catching it. The lesson is the one section 1 already states: where the code and the contract disagree, the contract is correct and the code is a defect — and that applies to a test asserting on the code just as much as to the code.
+
+Nothing in C1 has been changed by this work. The contract on this branch is the committed C1 plus the 0.6 delta described above, and nothing else.
