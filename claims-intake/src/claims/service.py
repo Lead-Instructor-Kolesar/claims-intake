@@ -257,4 +257,4 @@ def submit_notification(
     outcome = evaluate_notification(notification, _policy_from_record(record))
     if not outcome.passed:
         return outcome
-    return repository.record(notification)
+    return repository.records(notification)
