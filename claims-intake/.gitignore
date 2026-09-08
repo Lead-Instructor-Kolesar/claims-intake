@@ -4,7 +4,6 @@
 
 # Virtual environment. Created by `uv sync` from the committed lock file.
 .venv/
-.github/
 
 # Python
 __pycache__/
