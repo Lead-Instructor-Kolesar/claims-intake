@@ -15,13 +15,12 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal, NewType
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field
 from pydantic_core import PydanticCustomError
 
 # Contract §2.3 vocabulary. Membership here is structural: `flood` dies at
 # parse as MALFORMED_REQUEST (400). Whether a product permits a vocabulary
 # type is V-5 (TYPE_NOT_COVERED, 422) and lives in service.py (Day 3).
-# Another way to do this would be using a StrEnum (e.g. ClaimType.COLLISION).
 ClaimType = Literal["collision", "theft", "glass", "liability", "weather"]
 
 # Distinct NewTypes so a rule identifier cannot be passed where an error code
@@ -44,13 +43,28 @@ def _reject_float_money(value: object) -> object:
     return value
 
 
-# Attaching metadata to existing types for money
+def _require_exactly_two_decimal_places(value: Decimal) -> Decimal:
+    # Contract §2.2 and §4: exactly two decimal places (`invalid_scale`).
+    # Pydantic `decimal_places=2` is a maximum; `10.5` and `10` would otherwise pass.
+    exponent = value.as_tuple().exponent
+    if exponent != -2:
+        raise PydanticCustomError(
+            "invalid_scale",
+            "money values must have exactly two decimal places",
+        )
+    return value
+
+
 UsdAmount = Annotated[
     Decimal,
     BeforeValidator(_reject_float_money),
     Field(gt=0, decimal_places=2),
+    AfterValidator(_require_exactly_two_decimal_places),
 ]
-ExactDecimal = Annotated[Decimal, BeforeValidator(_reject_float_money)]
+# Policy.limit is already Decimal from the master. Reject float so V-4 cannot
+# rest on binary money. Scale and positivity are not section 2.2 constraints
+# on the policy record.
+PolicyLimit = Annotated[Decimal, BeforeValidator(_reject_float_money)]
 
 
 class NotificationRequest(BaseModel):
@@ -61,7 +75,9 @@ class NotificationRequest(BaseModel):
     policy exists, whether the loss falls inside the term, and whether the amount
     is within the limit are rules, and rules live in `service.py`.
     """
-    #ConfigDict(extra="forbid") makes any extra fields raise an error  
+
+    # Contract §2.2: a misspelled field accepted-and-ignored would record data
+    # the caller did not send.
     model_config = ConfigDict(extra="forbid")
 
     policy_number: Annotated[str, Field(min_length=1)]
@@ -90,11 +106,8 @@ class Policy(BaseModel):
     # WI-0158 AC-3: required-but-nullable. No `= None` default, so construction
     # cannot silently treat a forgotten cancellation as "not cancelled".
     # `date | None` makes an unguarded comparison fail type checking.
-    # when cancellation_date is null the policy is not cancelled and V-7 is not applied
     cancellation_date: date | None
-    # changed vs policy_client to use ExactDecimal -> not using usdAmount
-    limit: ExactDecimal
-    # claim types must be in the ClaimType literal
+    limit: PolicyLimit
     permitted_claim_types: tuple[ClaimType, ...]
 
 
@@ -105,8 +118,8 @@ class RuleFailure:
     rule: RuleIdentifier
     code: ErrorCode
 
-#Supporting Type
-class RecordedNotification(BaseModel):
+
+class ClaimRecord(BaseModel):
     """A notification that passed every rule and was written.
 
     Carries the claim reference issued at the time it was recorded. Contract
@@ -116,12 +129,14 @@ class RecordedNotification(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
-    # CLM-YYYY-NNNNNN contract S3
+
     claim_reference: Annotated[str, Field(pattern=r"^CLM-\d{4}-\d{6}$")]
-    # WI-0151 AC-1 = NO DUPLICATE QUERIES!!!
-    policy_number: str
+    policy_number: Annotated[str, Field(min_length=1)]
     loss_date: date
     claim_type: ClaimType
-    estimated_amount: ExactDecimal
+    estimated_amount: UsdAmount
     description: str | None
-    # No status field
+
+
+# Day 3 stub in service.py still imports this name.
+RecordedNotification = ClaimRecord

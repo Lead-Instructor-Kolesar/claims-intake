@@ -221,9 +221,20 @@ token for this code; it is not prose.
 ```
 
 When the body is not valid JSON, `field` is omitted and `problem` is
-`invalid_json`. A `claim_type` not in 2.3 has `problem`
-`value_not_in_vocabulary`. An `estimated_amount` that is not exactly
-two decimal places has `problem` `invalid_scale`.
+`invalid_json`. `problem` is one of these tokens, chosen by what the
+parser could not interpret:
+
+| `problem` | Condition |
+| --- | --- |
+| `invalid_json` | The body was not valid JSON. `field` is omitted. |
+| `required_field_absent` | A required field was omitted. |
+| `unexpected_field` | A field not listed in 2.2 was present, including a misspelling. |
+| `empty_value` | A required string was present and empty (`policy_number`). |
+| `invalid_type` | A field carried a value of the wrong type, or a date that is not `YYYY-MM-DD`. |
+| `value_not_in_vocabulary` | `claim_type` is not one of the values in 2.3. |
+| `invalid_scale` | `estimated_amount` is not exactly two decimal places. |
+| `not_greater_than_zero` | `estimated_amount` is zero or negative. |
+| `inexact_money` | `estimated_amount` arrived as a binary float rather than a decimal. |
 
 ### 5.3 Policy master that did not answer
 

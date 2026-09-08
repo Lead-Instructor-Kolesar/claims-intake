@@ -83,39 +83,63 @@ A decision recorded here and nowhere else has not been made. Each decision below
 
 ## Day 2 reconciliation: model refusals against section 6
 
-Checked after `NotificationRequest`, `Policy`, and `RecordedNotification`
-were implemented, against the Day 1 contract (sections 4–6 already filled).
-The check was: inventory every constraint the models declare, name a payload
-that triggers it (the same cases as `tests/unit/test_models.py`), look up
-section 6 for a code and status, and close gaps.
+Checked after `NotificationRequest`, `Policy`, and `ClaimRecord` were
+implemented. The method was:
+
+1. List every constraint declared on `NotificationRequest` in
+   `src/claims/models.py` (`extra="forbid"`, required fields, `min_length`,
+   `Literal` vocabulary, `gt=0`, `decimal_places=2`, `date` parse, float
+   rejection).
+2. Name a payload that triggers each constraint, using the same case ids as
+   `tests/unit/test_models.py`.
+3. Look up `docs/api-contract.md` section 6 for a code and status for that
+   refusal.
+4. Check section 5.2 for a `problem` token the HTTP layer can attach when it
+   maps the parse refusal. Add any token that was missing.
+5. Record what was found, what was added, and what was out of scope.
 
 ### Constraint inventory
 
-| Model | Constraint | Payload / case | Section 6 |
-| --- | --- | --- | --- |
-| `NotificationRequest` | `extra="forbid"` | extra key; misspelled field | `MALFORMED_REQUEST` 400 |
-| `NotificationRequest` | required fields; no defaults | field omitted; EDGE-08 | `MALFORMED_REQUEST` 400 |
-| `NotificationRequest` | `policy_number` not empty | empty string | `MALFORMED_REQUEST` 400 |
-| `NotificationRequest` | `loss_date: date` | unparsable / wrong type | `MALFORMED_REQUEST` 400 |
-| `NotificationRequest` | `claim_type` is §2.3 vocabulary | EDGE-11 `flood` | `MALFORMED_REQUEST` 400 |
-| `NotificationRequest` | `estimated_amount` `gt=0` | `"0.00"`; negative | `MALFORMED_REQUEST` 400 |
-| `NotificationRequest` | two decimal places (EDGE-12 / §4 `invalid_scale`) | EDGE-12 `"3499.999"` | `MALFORMED_REQUEST` 400 |
-| `NotificationRequest` | float money rejected | Python `float` | `MALFORMED_REQUEST` 400 |
-| `Policy` / `RecordedNotification` | construction constraints | not HTTP payloads | not mapped |
+| Model | Constraint | Payload / case id | Section 6 | Section 5.2 `problem` |
+| --- | --- | --- | --- | --- |
+| `NotificationRequest` | `extra="forbid"` | `unknown_field`, `misspelled_field` | `MALFORMED_REQUEST` 400 | `unexpected_field` |
+| `NotificationRequest` | required fields; no defaults | `missing_policy_number`, `missing_loss_date`, `missing_claim_type`, `missing_estimated_amount`, `missing_estimated_amount_edge_08` | `MALFORMED_REQUEST` 400 | `required_field_absent` |
+| `NotificationRequest` | `policy_number` not empty | empty string | `MALFORMED_REQUEST` 400 | `empty_value` |
+| `NotificationRequest` | `policy_number` is a string | `policy_number` wrong type | `MALFORMED_REQUEST` 400 | `invalid_type` |
+| `NotificationRequest` | `loss_date: date` | `loss_date_wrong_type`, `loss_date_unparsable`, `loss_date_not_iso` | `MALFORMED_REQUEST` 400 | `invalid_type` |
+| `NotificationRequest` | `claim_type` is §2.3 vocabulary | EDGE-11 `flood`; `empty_claim_type`; `claim_type_misspelled`; `claim_type` wrong type | `MALFORMED_REQUEST` 400 | `value_not_in_vocabulary` (wrong type: `invalid_type`) |
+| `NotificationRequest` | `estimated_amount` `gt=0` | `amount_not_greater_than_zero`; `amount_negative` | `MALFORMED_REQUEST` 400 | `not_greater_than_zero` |
+| `NotificationRequest` | two decimal places | EDGE-12; `amount_one_decimal_place`; `amount_integer_scale` | `MALFORMED_REQUEST` 400 | `invalid_scale` |
+| `NotificationRequest` | float money rejected | Python `float` | `MALFORMED_REQUEST` 400 | `inexact_money` |
+| `NotificationRequest` | `estimated_amount` is decimal | `estimated_amount` wrong type | `MALFORMED_REQUEST` 400 | `invalid_type` |
+| `Policy` / `ClaimRecord` | construction constraints | not HTTP payloads | not mapped | not mapped |
 
 ### What was found
 
 Section 6 already names `MALFORMED_REQUEST` at 400 for every uninterpretable
-request. Every `NotificationRequest` refusal above is that class (section 2.4
-and section 4's EDGE-11 / EDGE-12 sentences). No model-produced code was
-missing. Section 6 was not amended in this check.
+request (section 2.4). Every `NotificationRequest` refusal above is that class.
+No model-produced *code* was missing, so section 6 was not given a new row.
 
-`Policy` and `RecordedNotification` refusals are in-process construction
-errors, not HTTP responses. They do not get their own codes.
+Section 5.2 named only `required_field_absent`, `invalid_json`,
+`value_not_in_vocabulary`, and `invalid_scale`. The inventory needed tokens
+for extra fields, empty `policy_number`, wrong type, amount not greater than
+zero, and float money. Those tokens were added to section 5.2. They are
+`detail.problem` values under the existing `MALFORMED_REQUEST` code, not new
+codes.
+
+`Policy` and `ClaimRecord` refusals are in-process construction errors, not
+HTTP responses. They do not get their own codes.
+
+### What was added
+
+- `docs/api-contract.md` section 5.2: `unexpected_field`, `empty_value`,
+  `invalid_type`, `not_greater_than_zero`, `inexact_money`.
+- Section 6: nothing. The code and status were already present.
 
 ### Out of scope for this check
 
 Rule codes (`POLICY_NOT_FOUND`, `DUPLICATE_NOTIFICATION`, `POLICY_CANCELLED`,
 and the rest of section 4.2) and the policy-master 5xx codes are not produced
-by the models. This note does not claim section 6 was re-derived from Day 2;
-it only confirms that parse refusals already have a row.
+by the models. Invalid JSON is produced by the HTTP layer (Day 4), not by
+`NotificationRequest`. This note does not claim section 6 is exhaustive for the
+whole service; it only confirms that every parse refusal already has a row.

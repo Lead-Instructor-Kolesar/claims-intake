@@ -1,10 +1,9 @@
 """Shape-boundary tests for Day 2 models.
 
 Written against contract sections 2–4 and the payload classification in
-`docs/payload-triage.md` (EDGE-07 / EDGE-11 / EDGE-12 decisions) together with
-the Day 2 plan (section 4). A failure here means the type is too loose (a
-structurally bad payload reached the rules) or too tight (a well-formed
-business-rule case was treated as 400).
+`docs/payload-triage.md` (EDGE-07 / EDGE-11 / EDGE-12 decisions). A failure here
+means the type is too loose (a structurally bad payload reached the rules) or too
+tight (a well-formed business-rule case was treated as 400).
 
 JSON fixtures are the HTTP wire format, so their dates and amounts are strings.
 Every Python construction in this file uses `date(...)` and `Decimal("...")`.
@@ -24,10 +23,10 @@ import pytest
 from pydantic import ValidationError
 
 from claims.models import (
+    ClaimRecord,
     ErrorCode,
     NotificationRequest,
     Policy,
-    RecordedNotification,
     RuleFailure,
     RuleIdentifier,
 )
@@ -37,14 +36,14 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 Boundary = Literal["model", "rules"]
 
 
-def _index(filename: str) -> dict[str, dict[str, object]]:
+def _fnol_payloads_by_id(filename: str) -> dict[str, dict[str, object]]:
     records = json.loads((DATA_DIR / filename).read_text())
     return {record["id"]: record["payload"] for record in records}
 
 
-VALID = _index("fnol_valid.json")
-INVALID = _index("fnol_invalid.json")
-EDGE = _index("fnol_edge.json")
+VALID = _fnol_payloads_by_id("fnol_valid.json")
+INVALID = _fnol_payloads_by_id("fnol_invalid.json")
+EDGE = _fnol_payloads_by_id("fnol_edge.json")
 
 # Contract §4 / triage: only EDGE-08, EDGE-11, EDGE-12 fail to parse.
 # Everything else is well formed even when the rules would later refuse it.
@@ -65,6 +64,18 @@ def _copy(payload: dict[str, object]) -> dict[str, object]:
 def _valid_body() -> dict[str, object]:
     """Wire-format body cloned from VALID-01 so mutation cannot leak."""
     return _copy(VALID["VALID-01"])
+
+
+def _claim_body() -> dict[str, object]:
+    """Python construction for ClaimRecord. Dates and money are never strings."""
+    return {
+        "claim_reference": "CLM-2026-000001",
+        "policy_number": "MOT-4471",
+        "loss_date": date(2026, 4, 2),
+        "claim_type": "collision",
+        "estimated_amount": Decimal("4200.00"),
+        "description": "Rear ended at a junction.",
+    }
 
 
 # --- NotificationRequest: accepts well-formed payloads --------------------------------
@@ -153,6 +164,13 @@ def test_notification_request_rejects_empty_policy_number() -> None:
         NotificationRequest.model_validate(body)
 
 
+def test_notification_request_rejects_policy_number_wrong_type() -> None:
+    body = _valid_body()
+    body["policy_number"] = 4471
+    with pytest.raises(ValidationError):
+        NotificationRequest.model_validate(body)
+
+
 # --- NotificationRequest: claim_type vocabulary is structural (contract §2.3) ---------
 
 
@@ -165,6 +183,13 @@ def test_notification_request_rejects_claim_type_not_in_vocabulary(claim_type: s
     # flood is EDGE-11. Contract §4: MALFORMED_REQUEST, not V-5 TYPE_NOT_COVERED.
     body = _valid_body()
     body["claim_type"] = claim_type
+    with pytest.raises(ValidationError):
+        NotificationRequest.model_validate(body)
+
+
+def test_notification_request_rejects_claim_type_wrong_type() -> None:
+    body = _valid_body()
+    body["claim_type"] = 1
     with pytest.raises(ValidationError):
         NotificationRequest.model_validate(body)
 
@@ -189,8 +214,23 @@ def test_notification_request_rejects_amount_not_greater_than_zero(amount: str) 
         NotificationRequest.model_validate(body)
 
 
-def test_notification_request_rejects_amount_three_decimal_places() -> None:
-    # EDGE-12. Contract §4: not two decimal places is MALFORMED_REQUEST, not V-4.
+@pytest.mark.parametrize(
+    "amount",
+    ["3499.999", "10.5", "10"],
+    ids=["amount_three_decimal_places", "amount_one_decimal_place", "amount_integer_scale"],
+)
+def test_notification_request_rejects_amount_not_exactly_two_decimal_places(
+    amount: str,
+) -> None:
+    # EDGE-12 is three places. One place and integer scale also violate §2.2.
+    body = _valid_body()
+    body["estimated_amount"] = amount
+    with pytest.raises(ValidationError):
+        NotificationRequest.model_validate(body)
+
+
+def test_notification_request_rejects_edge_12_three_decimal_places() -> None:
+    # Contract §4: not two decimal places is MALFORMED_REQUEST, not V-4.
     with pytest.raises(ValidationError):
         NotificationRequest.model_validate(_copy(EDGE["EDGE-12"]))
 
@@ -200,6 +240,13 @@ def test_notification_request_rejects_float_money() -> None:
     # from binary float. Coerce from str/int only (contract §2.2).
     body = _valid_body()
     body["estimated_amount"] = 4200.00
+    with pytest.raises(ValidationError):
+        NotificationRequest.model_validate(body)
+
+
+def test_notification_request_rejects_estimated_amount_wrong_type() -> None:
+    body = _valid_body()
+    body["estimated_amount"] = True
     with pytest.raises(ValidationError):
         NotificationRequest.model_validate(body)
 
@@ -229,7 +276,7 @@ def test_notification_request_rejects_loss_date_that_is_not_a_date(
     [_copy(VALID["VALID-06"]), {**VALID["VALID-01"], "description": None}],
     ids=["description_absent", "description_null"],
 )
-def test_description_absent_and_null_are_equivalent(body: dict[str, object]) -> None:
+def test_optional_description_normalizes_to_none(body: dict[str, object]) -> None:
     parsed = NotificationRequest.model_validate(body)
     assert parsed.description is None
 
@@ -237,11 +284,15 @@ def test_description_absent_and_null_are_equivalent(body: dict[str, object]) -> 
 # --- Policy: dates, Decimal, extras, WI-0158 AC-3 typing ------------------------------
 
 
-def test_policy_uses_date_and_decimal_types(make_policy: Callable[..., Policy]) -> None:
+def test_policy_term_dates_are_date_values(make_policy: Callable[..., Policy]) -> None:
     policy = make_policy(cancellation_date=date(2026, 6, 1), limit=Decimal("25000.00"))
     assert type(policy.effective_date) is date
     assert type(policy.expiry_date) is date
     assert type(policy.cancellation_date) is date
+
+
+def test_policy_limit_is_decimal(make_policy: Callable[..., Policy]) -> None:
+    policy = make_policy(limit=Decimal("25000.00"))
     assert type(policy.limit) is Decimal
 
 
@@ -257,11 +308,60 @@ def test_policy_cancellation_date_is_required_but_nullable() -> None:
     assert field.annotation == date | None
 
 
-def test_policy_rejects_omitted_cancellation_date(make_policy: Callable[..., Policy]) -> None:
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "policy_number",
+        "product",
+        "effective_date",
+        "expiry_date",
+        "cancellation_date",
+        "limit",
+        "permitted_claim_types",
+    ],
+    ids=[
+        "omitted_policy_number",
+        "omitted_product",
+        "omitted_effective_date",
+        "omitted_expiry_date",
+        "omitted_cancellation_date",
+        "omitted_limit",
+        "omitted_permitted_claim_types",
+    ],
+)
+def test_policy_rejects_omitted_required_field(
+    make_policy: Callable[..., Policy],
+    field_name: str,
+) -> None:
     body = make_policy().model_dump()
-    del body["cancellation_date"]
+    del body[field_name]
     with pytest.raises(ValidationError):
         Policy.model_validate(body)
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "policy_number",
+        "product",
+        "effective_date",
+        "expiry_date",
+        "cancellation_date",
+        "limit",
+        "permitted_claim_types",
+    ],
+    ids=[
+        "policy_number_has_no_default",
+        "product_has_no_default",
+        "effective_date_has_no_default",
+        "expiry_date_has_no_default",
+        "cancellation_date_has_no_default",
+        "limit_has_no_default",
+        "permitted_claim_types_has_no_default",
+    ],
+)
+def test_policy_required_field_has_no_default(field_name: str) -> None:
+    assert Policy.model_fields[field_name].is_required()
 
 
 def test_policy_rejects_unparsable_cancellation_date(make_policy: Callable[..., Policy]) -> None:
@@ -286,6 +386,13 @@ def test_policy_rejects_empty_policy_number(make_policy: Callable[..., Policy]) 
 def test_policy_rejects_float_limit(make_policy: Callable[..., Policy]) -> None:
     body = make_policy().model_dump()
     body["limit"] = 10000.00
+    with pytest.raises(ValidationError):
+        Policy.model_validate(body)
+
+
+def test_policy_rejects_unparsable_limit(make_policy: Callable[..., Policy]) -> None:
+    body = make_policy().model_dump()
+    body["limit"] = "not-a-decimal"
     with pytest.raises(ValidationError):
         Policy.model_validate(body)
 
@@ -337,18 +444,11 @@ def test_rule_failure_carries_rule_identifier_and_error_code_separately() -> Non
     assert failure.code == "POLICY_NOT_FOUND"
 
 
-# --- RecordedNotification: claim_reference format (contract §3) -----------------------
+# --- ClaimRecord: claim_reference format (contract §3) ---------------------------------
 
 
-def test_recorded_notification_uses_date_and_decimal() -> None:
-    recorded = RecordedNotification(
-        claim_reference="CLM-2026-000001",
-        policy_number="MOT-4471",
-        loss_date=date(2026, 4, 2),
-        claim_type="collision",
-        estimated_amount=Decimal("4200.00"),
-        description="Rear ended at a junction.",
-    )
+def test_claim_record_uses_date_and_decimal() -> None:
+    recorded = ClaimRecord.model_validate(_claim_body())
     assert type(recorded.loss_date) is date
     assert type(recorded.estimated_amount) is Decimal
 
@@ -358,75 +458,86 @@ def test_recorded_notification_uses_date_and_decimal() -> None:
     ["CLM-26-1", "CLM-2026-1", "2026-000001"],
     ids=["year_not_four_digits", "sequence_not_six_digits", "missing_clm_prefix"],
 )
-def test_recorded_notification_rejects_claim_reference_not_matching_format(
+def test_claim_record_rejects_claim_reference_not_matching_format(
     claim_reference: str,
 ) -> None:
+    body = _claim_body()
+    body["claim_reference"] = claim_reference
     with pytest.raises(ValidationError):
-        RecordedNotification(
-            claim_reference=claim_reference,
-            policy_number="MOT-4471",
-            loss_date=date(2026, 4, 2),
-            claim_type="collision",
-            estimated_amount=Decimal("4200.00"),
-            description=None,
-        )
+        ClaimRecord.model_validate(body)
 
 
-def test_recorded_notification_rejects_unknown_field() -> None:
-    recorded = RecordedNotification(
-        claim_reference="CLM-2026-000001",
-        policy_number="MOT-4471",
-        loss_date=date(2026, 4, 2),
-        claim_type="collision",
-        estimated_amount=Decimal("4200.00"),
-        description=None,
-    )
-    body = recorded.model_dump()
+def test_claim_record_rejects_unknown_field() -> None:
+    body = _claim_body()
     body["handler_id"] = "extra"
     with pytest.raises(ValidationError):
-        RecordedNotification.model_validate(body)
+        ClaimRecord.model_validate(body)
 
 
-def test_recorded_notification_rejects_loss_date_that_is_not_a_date() -> None:
-    body = RecordedNotification(
-        claim_reference="CLM-2026-000001",
-        policy_number="MOT-4471",
-        loss_date=date(2026, 4, 2),
-        claim_type="collision",
-        estimated_amount=Decimal("4200.00"),
-        description=None,
-    ).model_dump()
+def test_claim_record_rejects_loss_date_that_is_not_a_date() -> None:
+    body = _claim_body()
     body["loss_date"] = "not-a-date"
     with pytest.raises(ValidationError):
-        RecordedNotification.model_validate(body)
+        ClaimRecord.model_validate(body)
 
 
-def test_recorded_notification_rejects_claim_type_not_in_vocabulary() -> None:
-    body = RecordedNotification(
-        claim_reference="CLM-2026-000001",
-        policy_number="MOT-4471",
-        loss_date=date(2026, 4, 2),
-        claim_type="collision",
-        estimated_amount=Decimal("4200.00"),
-        description=None,
-    ).model_dump()
+def test_claim_record_rejects_claim_type_not_in_vocabulary() -> None:
+    body = _claim_body()
     body["claim_type"] = "flood"
     with pytest.raises(ValidationError):
-        RecordedNotification.model_validate(body)
+        ClaimRecord.model_validate(body)
 
 
-def test_recorded_notification_rejects_float_money() -> None:
-    body = RecordedNotification(
-        claim_reference="CLM-2026-000001",
-        policy_number="MOT-4471",
-        loss_date=date(2026, 4, 2),
-        claim_type="collision",
-        estimated_amount=Decimal("4200.00"),
-        description=None,
-    ).model_dump()
+def test_claim_record_rejects_float_money() -> None:
+    body = _claim_body()
     body["estimated_amount"] = 4200.00
     with pytest.raises(ValidationError):
-        RecordedNotification.model_validate(body)
+        ClaimRecord.model_validate(body)
+
+
+def test_claim_record_rejects_empty_policy_number() -> None:
+    body = _claim_body()
+    body["policy_number"] = ""
+    with pytest.raises(ValidationError):
+        ClaimRecord.model_validate(body)
+
+
+@pytest.mark.parametrize(
+    "amount",
+    ["0.00", "10.5"],
+    ids=["amount_not_greater_than_zero", "amount_one_decimal_place"],
+)
+def test_claim_record_rejects_amount_that_is_not_usd(amount: str) -> None:
+    body = _claim_body()
+    body["estimated_amount"] = amount
+    with pytest.raises(ValidationError):
+        ClaimRecord.model_validate(body)
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "claim_reference",
+        "policy_number",
+        "loss_date",
+        "claim_type",
+        "estimated_amount",
+        "description",
+    ],
+    ids=[
+        "omitted_claim_reference",
+        "omitted_policy_number",
+        "omitted_loss_date",
+        "omitted_claim_type",
+        "omitted_estimated_amount",
+        "omitted_description",
+    ],
+)
+def test_claim_record_rejects_omitted_required_field(field_name: str) -> None:
+    body = _claim_body()
+    del body[field_name]
+    with pytest.raises(ValidationError):
+        ClaimRecord.model_validate(body)
 
 
 # --- Deliberate classification of invalid and edge payloads (contract §4 / triage) ---
@@ -483,7 +594,7 @@ def test_payload_fails_at_model_or_survives_to_rules(
     boundary: Boundary,
 ) -> None:
     """INVALID-* are well formed; EDGE-08/11/12 fail at parse (contract §4, triage)."""
-    payload = _index(filename)[payload_id]
+    payload = _fnol_payloads_by_id(filename)[payload_id]
     if boundary == "model":
         with pytest.raises(ValidationError):
             NotificationRequest.model_validate(payload)
