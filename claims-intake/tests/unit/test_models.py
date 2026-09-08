@@ -16,7 +16,14 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from claims.models import ClaimRecord, NotificationRequest, Policy, RecordedNotification
+from claims.models import (
+    AdmittedNotification,
+    ClaimRecord,
+    NotificationRequest,
+    Policy,
+    RecordedNotification,
+)
+from claims.policy_client import StubPolicyClient
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
@@ -125,42 +132,85 @@ def test_fixture_payloads_that_survive_to_the_rules(payload_id: str) -> None:
     NotificationRequest.model_validate(_fixture_payloads()[payload_id])
 
 
+def _policy(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "policy_number": "MOT-4471",
+        "product": "personal_auto_standard",
+        "effective_date": date(2026, 3, 1),
+        "expiry_date": date(2027, 2, 28),
+        "cancellation_date": None,
+        "limit": Decimal("50000.00"),
+        "permitted_claim_types": ("collision", "theft", "glass", "liability", "weather"),
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_policy_uncancelled_when_cancellation_date_is_none() -> None:
     """WI-0158 AC-3: None means the policy was not cancelled."""
-    policy = Policy(
-        policy_number="MOT-4471",
-        product="personal_auto_standard",
-        effective_date=date(2026, 3, 1),
-        expiry_date=date(2027, 2, 28),
-        cancellation_date=None,
-        limit=Decimal("50000.00"),
-        permitted_claim_types=("collision", "theft", "glass", "liability", "weather"),
-    )
+    policy = Policy.model_validate(_policy())
     assert policy.cancellation_date is None
+    assert policy.is_cancelled is False
     assert policy.limit == Decimal("50000.00")
 
 
+def test_policy_is_cancelled_when_cancellation_date_is_set() -> None:
+    policy = Policy.model_validate(_policy(cancellation_date=date(2026, 2, 1)))
+    assert policy.is_cancelled is True
+
+
+def test_policy_from_record_round_trip() -> None:
+    record = StubPolicyClient().get_policy("MOT-4471")
+    policy = Policy.from_record(record)
+    assert policy.policy_number == record.policy_number
+    assert policy.limit == record.limit
+    assert policy.permitted_claim_types == record.permitted_claim_types
+    assert policy.is_cancelled is False
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param(_policy(policy_number=""), id="empty_policy_number"),
+        pytest.param(_policy(product=""), id="empty_product"),
+        pytest.param(_policy(limit=Decimal("0.00")), id="zero_limit"),
+        pytest.param(_policy(limit=Decimal("50000.999")), id="three_decimal_places"),
+        pytest.param(_policy(permitted_claim_types=("flood",)), id="type_outside_vocabulary"),
+        pytest.param({**_policy(), "unknown": "field"}, id="unknown_field"),
+    ],
+)
+def test_policy_rejects_malformed_payloads(payload: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        Policy.model_validate(payload)
+
+
 def test_claim_record_carries_a_claim_reference() -> None:
-    recorded = ClaimRecord(
-        claim_reference="CLM-2026-000317",
-        status="recorded",
-        policy_number="MOT-4471",
-        loss_date=date(2026, 4, 2),
-        claim_type="collision",
-        estimated_amount=Decimal("4200.00"),
-        description="Rear ended at a junction.",
+    request = NotificationRequest.model_validate(_base())
+    recorded = ClaimRecord.issue(
+        AdmittedNotification.admit(request),
+        "CLM-2026-000317",
     )
     assert recorded.claim_reference == "CLM-2026-000317"
     assert recorded.status == "recorded"
+    assert recorded.identity.status == "recorded"
+    assert recorded.payload.policy_number == "MOT-4471"
+    assert isinstance(recorded.identity, RecordedNotification)
+    assert isinstance(recorded.payload, AdmittedNotification)
 
 
 def test_malformed_claim_reference_is_rejected() -> None:
     with pytest.raises(ValidationError):
-        RecordedNotification(
-            claim_reference="CLM-26-317",
-            status="recorded",
-            policy_number="MOT-4471",
-            loss_date=date(2026, 4, 2),
-            claim_type="collision",
-            estimated_amount=Decimal("4200.00"),
+        RecordedNotification(claim_reference="CLM-26-317", status="recorded")
+
+
+def test_recorded_notification_rejects_rejected_status() -> None:
+    with pytest.raises(ValidationError):
+        RecordedNotification.model_validate(
+            {"claim_reference": "CLM-2026-000317", "status": "rejected"}
         )
+
+
+def test_claim_record_issue_rejects_malformed_reference() -> None:
+    request = NotificationRequest.model_validate(_base())
+    with pytest.raises(ValidationError):
+        ClaimRecord.issue(AdmittedNotification.admit(request), "CLM-26-317")

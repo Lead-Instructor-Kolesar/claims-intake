@@ -12,43 +12,35 @@ Day 2 assignment. Implement against `docs/api-contract.md` section 3.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
-from claims.models import NotificationRequest, RecordedNotification
+from claims.models import AdmittedNotification, ClaimRecord, DuplicateKey
 
 
 class NotificationRepository:
     """Stores recorded notifications and issues claim references."""
 
     def __init__(self) -> None:
-        self._notifications: list[RecordedNotification] = []
+        self._notifications: list[ClaimRecord] = []
         self._sequence = 0
 
-    def record(self, notification: NotificationRequest) -> RecordedNotification:
-        """Write a notification and return it with its issued claim reference.
+    def record(self, notification: AdmittedNotification) -> ClaimRecord:
+        """Write an admitted notification and return it with its claim reference.
 
         The reference format is fixed by contract section 3. References are unique
-        and are never reissued.
+        and are never reissued. A NotificationRequest cannot be passed here: only
+        a FNOL that has already been admitted is stored, so a refused submission
+        can never become a later duplicate (WI-0151 AC-3).
         """
         self._sequence += 1
-        recorded = RecordedNotification(
-            claim_reference=f"CLM-{datetime.now(tz=UTC).year}-{self._sequence:06d}",
-            status="recorded",
-            policy_number=notification.policy_number,
-            loss_date=notification.loss_date,
-            claim_type=notification.claim_type,
-            estimated_amount=notification.estimated_amount,
-            description=notification.description,
+        recorded = ClaimRecord.issue(
+            notification,
+            f"CLM-{datetime.now(tz=UTC).year}-{self._sequence:06d}",
         )
         self._notifications.append(recorded)
         return recorded
 
-    def find_matching(
-        self,
-        policy_number: str,
-        loss_date: date,
-        claim_type: str,
-    ) -> RecordedNotification | None:
+    def find_matching(self, candidate: DuplicateKey) -> ClaimRecord | None:
         """Return an existing recorded notification matching all three values.
 
         `WI-0151` AC-1 fixes which fields constitute a match. Equality is exact
@@ -57,10 +49,6 @@ class NotificationRepository:
         was never written, so there is nothing for a later one to duplicate.
         """
         for recorded in self._notifications:
-            if (
-                recorded.policy_number == policy_number
-                and recorded.loss_date == loss_date
-                and recorded.claim_type == claim_type
-            ):
+            if recorded.matches(candidate):
                 return recorded
         return None
