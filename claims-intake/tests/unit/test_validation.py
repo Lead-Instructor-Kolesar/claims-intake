@@ -107,6 +107,7 @@ def test_v1_policy_exists(
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
+    assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
     assert outcome.code != "LOSS_BEFORE_INCEPTION"
     submitted = _assert_not_recorded(request, policy_client, repo)
@@ -193,6 +194,7 @@ def test_v2_loss_date_against_inception(
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
+    assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
     _assert_not_recorded(request, policy_client, repo)
 
@@ -240,6 +242,7 @@ def test_v7_cancellation(
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
+    assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
     assert outcome.code != "LOSS_AFTER_EXPIRY"
     _assert_not_recorded(request, policy_client, repo)
@@ -271,6 +274,7 @@ def test_v3_loss_date_against_expiry(
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
+    assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
     _assert_not_recorded(request, policy_client, repo)
 
@@ -301,6 +305,7 @@ def test_v4_amount_against_limit(
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
+    assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
     _assert_not_recorded(request, policy_client, repo)
 
@@ -347,5 +352,6 @@ def test_v5_claim_type_permitted(
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
+    assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
     _assert_not_recorded(request, policy_client, repo)
