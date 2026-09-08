@@ -4,6 +4,7 @@
 
 # Virtual environment. Created by `uv sync` from the committed lock file.
 .venv/
+.github/
 
 # Python
 __pycache__/
@@ -11,6 +12,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
 
 # Environment files. A credential in a commit is compromised and has to be
 # rotated. Removing it in a later commit does not remove it from the history.
