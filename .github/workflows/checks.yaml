@@ -9,43 +9,15 @@ defaults:
     working-directory: claims-intake
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: "3.12"
-      - name: Install dependencies
-        run: uv sync --all-groups
-      - name: Run tests
-        run: uv run pytest
-
-  check_formatting:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: |
-          uv sync --all-groups
-          uv pip install flake8
-      - name: Run flake8
-        run: uv run flake8 --config "${{ github.workspace }}/.flake8"
-
-  check_types:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: uv sync --all-groups
-      - name: Run mypy
-        run: uv run mypy
+          working-directory: claims-intake
+      - run: uv sync --frozen --all-groups
+      - run: uv run ruff check src tests
+      - run: uv run mypy src tests
+      - run: uv run pytest
