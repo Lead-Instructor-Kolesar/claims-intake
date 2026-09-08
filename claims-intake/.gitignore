@@ -11,6 +11,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
 
 # Environment files. A credential in a commit is compromised and has to be
 # rotated. Removing it in a later commit does not remove it from the history.
