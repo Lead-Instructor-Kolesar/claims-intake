@@ -5,7 +5,7 @@ runs. A payload that reaches the rule layer has already been proven well formed,
 which is what keeps a shape problem and a content problem from arriving at the
 caller as the same status code.
 
-Day 2 assignment. Implement these against `docs/api-contract.md` sections 2 and 3.
+Implement these against `docs/api-contract.md` sections 2 and 3.
 """
 
 from __future__ import annotations

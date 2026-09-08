@@ -30,7 +30,7 @@ pwd           # /workspaces/claims-intake
 ```
 
 Dependencies are installed when the container is created. There is no install
-step in any assignment this week. If a tool you need is missing, that is a defect
+step this week. If a tool you need is missing, that is a defect
 in the image specification and should be reported rather than worked around.
 
 ```

@@ -7,7 +7,7 @@ with a database in a later week is a change to one module.
 The duplicate check that `WI-0151` describes is a query against what has been
 recorded, which is why it belongs here rather than in the rule table.
 
-Day 2 assignment. Implement against `docs/api-contract.md` section 3.
+Implement against `docs/api-contract.md` section 3.
 """
 
 from __future__ import annotations
