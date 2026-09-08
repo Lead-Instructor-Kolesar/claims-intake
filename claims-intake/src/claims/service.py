@@ -18,11 +18,12 @@ Day 3 assignment. Build the remaining rules test-first against
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from claims.models import NotificationRequest, Policy, RecordedNotification
-from claims.policy_client import PolicyClient, PolicyNotFound
+from claims.policy_client import PolicyClient, PolicyNotFound, PolicyRecord
 from claims.repository import NotificationRepository
 
 
@@ -92,7 +93,34 @@ def evaluate_loss_after_inception(
     The boundary is stated in contract section 4.2 and in WI-0142 AC-3. A loss on
     the inception date is covered.
     """
-    raise NotImplementedError("Day 3 assignment")
+    if notification.loss_date >= policy.effective_date:
+        return ValidationOutcome.ok()
+    return ValidationOutcome.failed(
+        rule="V-2",
+        code="LOSS_BEFORE_INCEPTION",
+        loss_date=notification.loss_date,
+        effective_date=policy.effective_date,
+    )
+
+
+def evaluate_not_cancelled(
+    notification: NotificationRequest,
+    policy: Policy,
+) -> ValidationOutcome:
+    """V-7. Cover ends at the start of the cancellation date.
+
+    The boundary is stated in contract section 4.2 and in WI-0158 AC-2. A loss on
+    the cancellation date is not covered. Where cancellation_date is null this
+    rule does not apply (WI-0158 AC-3).
+    """
+    if policy.cancellation_date is None or notification.loss_date < policy.cancellation_date:
+        return ValidationOutcome.ok()
+    return ValidationOutcome.failed(
+        rule="V-7",
+        code="POLICY_CANCELLED",
+        loss_date=notification.loss_date,
+        cancellation_date=policy.cancellation_date,
+    )
 
 
 def evaluate_loss_before_expiry(
@@ -100,7 +128,14 @@ def evaluate_loss_before_expiry(
     policy: Policy,
 ) -> ValidationOutcome:
     """V-3. The loss must not fall after the policy expiry date."""
-    raise NotImplementedError("Day 3 assignment")
+    if notification.loss_date <= policy.expiry_date:
+        return ValidationOutcome.ok()
+    return ValidationOutcome.failed(
+        rule="V-3",
+        code="LOSS_AFTER_EXPIRY",
+        loss_date=notification.loss_date,
+        expiry_date=policy.expiry_date,
+    )
 
 
 def evaluate_amount_within_limit(
@@ -111,7 +146,14 @@ def evaluate_amount_within_limit(
 
     An amount equal to the limit is within cover, per contract section 4.2.
     """
-    raise NotImplementedError("Day 3 assignment")
+    if notification.estimated_amount <= policy.limit:
+        return ValidationOutcome.ok()
+    return ValidationOutcome.failed(
+        rule="V-4",
+        code="AMOUNT_EXCEEDS_LIMIT",
+        estimated_amount=notification.estimated_amount,
+        limit=policy.limit,
+    )
 
 
 def evaluate_claim_type_covered(
@@ -119,22 +161,60 @@ def evaluate_claim_type_covered(
     policy: Policy,
 ) -> ValidationOutcome:
     """V-5. The claim type must be permitted on the policy's product."""
-    raise NotImplementedError("Day 3 assignment")
+    if notification.claim_type in policy.permitted_claim_types:
+        return ValidationOutcome.ok()
+    return ValidationOutcome.failed(
+        rule="V-5",
+        code="TYPE_NOT_COVERED",
+        claim_type=notification.claim_type,
+    )
+
+
+PolicyRule = Callable[[NotificationRequest, Policy], ValidationOutcome]
+
+POLICY_RULES: Sequence[PolicyRule] = (
+    evaluate_loss_after_inception,  # V-2
+    evaluate_not_cancelled,  # V-7
+    evaluate_loss_before_expiry,  # V-3
+    evaluate_claim_type_covered,  # V-5
+    evaluate_amount_within_limit,  # V-4
+)
 
 
 def evaluate_notification(
     notification: NotificationRequest,
-    policy_client: PolicyClient,
-    repository: NotificationRepository,
+    policy: Policy,
 ) -> ValidationOutcome:
-    """Evaluate every rule and return the outcome the caller sees.
+    """Evaluate every policy-field rule and return the outcome the caller sees.
 
     A notification can violate several rules at once and the caller sees one
     reason, so the order this function evaluates in is a caller-visible behavior.
     It is fixed by contract section 4.1 and by nothing else. If you find yourself
     choosing an order here, the contract is incomplete and the fix belongs there.
+
+    V-1 and V-6 are not in `POLICY_RULES`. They require a policy client and a
+    repository, and this function takes only a notification and a policy so that
+    it performs no I/O.
     """
-    raise NotImplementedError("Day 3 assignment")
+    for rule in POLICY_RULES:
+        outcome = rule(notification, policy)
+        if not outcome.passed:
+            return outcome
+    return ValidationOutcome.ok()
+
+
+def _policy_from_record(record: PolicyRecord) -> Policy:
+    return Policy.model_validate(
+        {
+            "policy_number": record.policy_number,
+            "product": record.product,
+            "effective_date": record.effective_date,
+            "expiry_date": record.expiry_date,
+            "cancellation_date": record.cancellation_date,
+            "limit": record.limit,
+            "permitted_claim_types": record.permitted_claim_types,
+        }
+    )
 
 
 def submit_notification(
@@ -147,5 +227,34 @@ def submit_notification(
     Nothing is written before the decision is made. A notification is either
     recorded with a claim reference or it does not exist, and there is no state in
     between for a later reader to interpret.
+
+    Order is contract section 4.1: V-1, then V-6, then `POLICY_RULES`. V-6 is
+    applied here so that the rule table never looks up the repository.
+    `PolicyLookupFailed` is not caught: this function can answer for a missing
+    policy, not for a master that did not answer.
     """
-    raise NotImplementedError("Day 3 assignment")
+    try:
+        record = policy_client.get_policy(notification.policy_number)
+    except PolicyNotFound:
+        return ValidationOutcome.failed(
+            rule="V-1",
+            code="POLICY_NOT_FOUND",
+            policy_number=notification.policy_number,
+        )
+
+    existing = repository.find_matching(
+        notification.policy_number,
+        notification.loss_date,
+        notification.claim_type,
+    )
+    if existing is not None:
+        return ValidationOutcome.failed(
+            rule="V-6",
+            code="DUPLICATE_NOTIFICATION",
+            claim_reference=existing.claim_reference,
+        )
+
+    outcome = evaluate_notification(notification, _policy_from_record(record))
+    if not outcome.passed:
+        return outcome
+    return repository.record(notification)
