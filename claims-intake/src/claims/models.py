@@ -10,7 +10,47 @@ Day 2 assignment. Implement these against `docs/api-contract.md` sections 2 and 
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+from typing import Annotated, Literal, NewType
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic_core import PydanticCustomError
+
+# Contract §2.3 vocabulary. Membership here is structural: `flood` dies at
+# parse as MALFORMED_REQUEST (400). Whether a product permits a vocabulary
+# type is V-5 (TYPE_NOT_COVERED, 422) and lives in service.py (Day 3).
+# Another way to do this would be using a StrEnum (e.g. ClaimType.COLLISION).
+ClaimType = Literal["collision", "theft", "glass", "liability", "weather"]
+
+# Distinct NewTypes so a rule identifier cannot be passed where an error code
+# is expected. Two `str` fields would type-check a swapped construction.
+RuleIdentifier = NewType("RuleIdentifier", str)
+ErrorCode = NewType("ErrorCode", str)
+
+
+def _reject_float_money(value: object) -> object:
+    # Contract §2.2: money is decimal USD. JSON numbers become float, and float
+    # cannot represent two-place decimal exactly. Coerce from str and int (the
+    # data files use strings). Full strict mode would also reject those strings.
+    if isinstance(value, float):
+        # PydanticCustomError becomes ValidationError. TypeError leaks out of
+        # BeforeValidator; ValueError trips ruff TRY004. This is the typed refusal.
+        raise PydanticCustomError(
+            "float_money",
+            "money values must be exact decimals, not float",
+        )
+    return value
+
+
+# Attaching metadata to existing types for money
+UsdAmount = Annotated[
+    Decimal,
+    BeforeValidator(_reject_float_money),
+    Field(gt=0, decimal_places=2),
+]
+ExactDecimal = Annotated[Decimal, BeforeValidator(_reject_float_money)]
 
 
 class NotificationRequest(BaseModel):
@@ -20,13 +60,18 @@ class NotificationRequest(BaseModel):
     is responsible for the shape of the request and for nothing else. Whether the
     policy exists, whether the loss falls inside the term, and whether the amount
     is within the limit are rules, and rules live in `service.py`.
-
-    `policy_number` is declared so that the V-1 rule in `service.py` has something
-    to read. Every other field, and every constraint on every field including this
-    one, is Day 2's work.
     """
+    #ConfigDict(extra="forbid") makes any extra fields raise an error  
+    model_config = ConfigDict(extra="forbid")
 
-    policy_number: str
+    policy_number: Annotated[str, Field(min_length=1)]
+    # date, not str, so V-2/V-3 compare two dates rather than two strings.
+    loss_date: date
+    claim_type: ClaimType
+    estimated_amount: UsdAmount
+    # Contract §2.2: the only optional field. Absent and null are equivalent;
+    # defaulting to None does not invent caller data.
+    description: str | None = None
 
 
 class Policy(BaseModel):
@@ -34,16 +79,49 @@ class Policy(BaseModel):
 
     Built from the `PolicyRecord` the policy client returns. The fields the rules
     compare against are the reason this model exists.
-
-    Day 2 assignment: declare the fields.
     """
 
+    model_config = ConfigDict(extra="forbid")
 
+    policy_number: Annotated[str, Field(min_length=1)]
+    product: str
+    effective_date: date
+    expiry_date: date
+    # WI-0158 AC-3: required-but-nullable. No `= None` default, so construction
+    # cannot silently treat a forgotten cancellation as "not cancelled".
+    # `date | None` makes an unguarded comparison fail type checking.
+    # when cancellation_date is null the policy is not cancelled and V-7 is not applied
+    cancellation_date: date | None
+    # changed vs policy_client to use ExactDecimal -> not using usdAmount
+    limit: ExactDecimal
+    # claim types must be in the ClaimType literal
+    permitted_claim_types: tuple[ClaimType, ...]
+
+
+@dataclass(frozen=True)
+class RuleFailure:
+    """One rule refusal, with the identifier and the contract code kept apart."""
+
+    rule: RuleIdentifier
+    code: ErrorCode
+
+#Supporting Type
 class RecordedNotification(BaseModel):
     """A notification that passed every rule and was written.
 
     Carries the claim reference issued at the time it was recorded. Contract
-    section 3 fixes the reference format.
-
-    Day 2 assignment: declare the fields.
+    section 3 fixes the reference format. Duplicate detection (WI-0151 AC-1) is a
+    query against recorded notifications, so this type holds the three-field
+    composite as well as the amount and description as written.
     """
+
+    model_config = ConfigDict(extra="forbid")
+    # CLM-YYYY-NNNNNN contract S3
+    claim_reference: Annotated[str, Field(pattern=r"^CLM-\d{4}-\d{6}$")]
+    # WI-0151 AC-1 = NO DUPLICATE QUERIES!!!
+    policy_number: str
+    loss_date: date
+    claim_type: ClaimType
+    estimated_amount: ExactDecimal
+    description: str | None
+    # No status field

@@ -17,6 +17,7 @@ packages = ["src/claims"]
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
 
 [tool.ruff]
 line-length = 100
