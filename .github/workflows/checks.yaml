@@ -1,115 +1,21 @@
-name: CI
+name: checks
 
 on:
-  push:
   pull_request:
+  push:
+    branches: [main]
 
 defaults:
   run:
     working-directory: claims-intake
 
 jobs:
-  # Stage 1: install dependencies and warm the pip cache
-  install:
-    runs-on: ubuntu-24.04
-    container:
-      image: python:3.12-bookworm
+  checks:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('claims-intake/requirements.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
-
-  # Stage 2: three parallel jobs, all gated on install succeeding
-  mypy:
-    needs: install
-    runs-on: ubuntu-24.04
-    container:
-      image: python:3.12-bookworm
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Restore pip cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('claims-intake/requirements.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
-          pip install mypy
-
-      - name: Run mypy
-        run: mypy .
-
-  ruff:
-    needs: install
-    runs-on: ubuntu-24.04
-    container:
-      image: python:3.12-bookworm
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Restore pip cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('claims-intake/requirements.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
-          pip install ruff
-
-      - name: Run ruff
-        run: ruff check .
-
-  pytest:
-    needs: install
-    runs-on: ubuntu-24.04
-    container:
-      image: python:3.12-bookworm
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Restore pip cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('claims-intake/requirements.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
-          pip install pytest
-
-      - name: Run pytest
-        run: pytest
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run mypy src tests
+      - run: uv run pytest
