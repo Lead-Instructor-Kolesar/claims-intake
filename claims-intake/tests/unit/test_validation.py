@@ -13,10 +13,20 @@ from __future__ import annotations
 
 import pytest
 
-from claims.models import AdmittedNotification, NotificationRequest, RecordedNotification
-from claims.policy_client import StubPolicyClient
+from claims.models import (
+    AdmittedNotification,
+    NotificationRequest,
+    Policy,
+    RecordedNotification,
+    RuleFailure,
+)
+from claims.policy_client import (
+    LookupFailureReason,
+    PolicyLookupFailed,
+    StubPolicyClient,
+)
 from claims.repository import NotificationRepository
-from claims.service import ValidationOutcome, evaluate_notification, submit_notification
+from claims.service import evaluate_notification, submit_notification
 
 
 def _request(**overrides: object) -> NotificationRequest:
@@ -31,30 +41,39 @@ def _request(**overrides: object) -> NotificationRequest:
     return NotificationRequest.model_validate(payload)
 
 
+def _policy(
+    request: NotificationRequest, policy_client: StubPolicyClient
+) -> Policy:
+    return Policy.from_record(policy_client.get_policy(request.policy_number))
+
+
 @pytest.fixture
 def repo() -> NotificationRepository:
     return NotificationRepository()
 
 
-def _assert_passed(outcome: ValidationOutcome) -> None:
-    assert outcome.passed is True
+def _assert_passed(failure: RuleFailure | None) -> None:
+    assert failure is None
 
 
-def _assert_failed(outcome: ValidationOutcome, rule: str, code: str) -> None:
-    assert outcome.passed is False
-    assert outcome.rule == rule
-    assert outcome.code == code
+def _assert_failed(
+    failure: RuleFailure | RecordedNotification | None, rule: str, code: str
+) -> RuleFailure:
+    assert isinstance(failure, RuleFailure)
+    assert failure.rule == rule
+    assert failure.code == code
+    return failure
 
 
 def _assert_not_recorded(
     request: NotificationRequest,
     policy_client: StubPolicyClient,
     repo: NotificationRepository,
-) -> ValidationOutcome:
+) -> RuleFailure:
+    existing = repo.find_matching(request)
     result = submit_notification(request, policy_client, repo)
-    assert isinstance(result, ValidationOutcome)
-    assert result.passed is False
-    assert repo.find_matching(request) is None
+    assert isinstance(result, RuleFailure)
+    assert repo.find_matching(request) is existing
     return result
 
 
@@ -102,16 +121,13 @@ def test_v1_policy_exists(
     expect_code: str | None,
 ) -> None:
     request = _request(**overrides)
-    outcome = evaluate_notification(request, policy_client, repo)
     if expect_rule is None:
-        _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
     assert expect_code is not None
-    _assert_failed(outcome, expect_rule, expect_code)
-    assert outcome.code != "LOSS_BEFORE_INCEPTION"
     submitted = _assert_not_recorded(request, policy_client, repo)
     _assert_failed(submitted, expect_rule, expect_code)
+    assert submitted.code != "LOSS_BEFORE_INCEPTION"
 
 
 @pytest.mark.parametrize(
@@ -135,11 +151,14 @@ def test_v6_duplicate_notification(
             loss_date="2026-03-19",
             estimated_amount="26000.00",
         )
-        first = evaluate_notification(request, policy_client, repo)
+        first = submit_notification(request, policy_client, repo)
         _assert_failed(first, "V-4", "AMOUNT_EXCEEDS_LIMIT")
         assert repo.find_matching(request) is None
-        second = evaluate_notification(request, policy_client, repo)
-        _assert_failed(second, "V-4", "AMOUNT_EXCEEDS_LIMIT")
+        second = _assert_failed(
+            submit_notification(request, policy_client, repo),
+            "V-4",
+            "AMOUNT_EXCEEDS_LIMIT",
+        )
         assert second.rule != "V-6"
         assert second.code != "DUPLICATE_NOTIFICATION"
         _assert_not_recorded(request, policy_client, repo)
@@ -149,8 +168,11 @@ def test_v6_duplicate_notification(
     recorded = repo.record(AdmittedNotification.admit(original))
 
     if case == "duplicate":
-        outcome = evaluate_notification(original, policy_client, repo)
-        _assert_failed(outcome, "V-6", "DUPLICATE_NOTIFICATION")
+        outcome = _assert_failed(
+            submit_notification(original, policy_client, repo),
+            "V-6",
+            "DUPLICATE_NOTIFICATION",
+        )
         assert outcome.detail["claim_reference"] == recorded.claim_reference
         submitted = _assert_not_recorded(original, policy_client, repo)
         _assert_failed(submitted, "V-6", "DUPLICATE_NOTIFICATION")
@@ -163,8 +185,7 @@ def test_v6_duplicate_notification(
         "differ_claim_type": {"claim_type": "theft"},
     }
     request = _request(**variants[case])
-    outcome = evaluate_notification(request, policy_client, repo)
-    _assert_passed(outcome)
+    _assert_passed(evaluate_notification(request, _policy(request, policy_client)))
     _assert_recorded(request, policy_client, repo)
 
 
@@ -189,7 +210,7 @@ def test_v2_loss_date_against_inception(
     expect_code: str | None,
 ) -> None:
     request = _request(loss_date=loss_date)
-    outcome = evaluate_notification(request, policy_client, repo)
+    outcome = evaluate_notification(request, _policy(request, policy_client))
     if expect_rule is None:
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
@@ -237,13 +258,14 @@ def test_v7_cancellation(
     expect_code: str | None,
 ) -> None:
     request = _request(**overrides)
-    outcome = evaluate_notification(request, policy_client, repo)
+    outcome = evaluate_notification(request, _policy(request, policy_client))
     if expect_rule is None:
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
         return
     assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
+    assert outcome is not None
     assert outcome.code != "LOSS_AFTER_EXPIRY"
     _assert_not_recorded(request, policy_client, repo)
 
@@ -269,7 +291,7 @@ def test_v3_loss_date_against_expiry(
     expect_code: str | None,
 ) -> None:
     request = _request(policy_number="MOT-4489", loss_date=loss_date, claim_type="theft")
-    outcome = evaluate_notification(request, policy_client, repo)
+    outcome = evaluate_notification(request, _policy(request, policy_client))
     if expect_rule is None:
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
@@ -300,7 +322,7 @@ def test_v4_amount_against_limit(
     expect_code: str | None,
 ) -> None:
     request = _request(policy_number="MOT-4501", estimated_amount=estimated_amount)
-    outcome = evaluate_notification(request, policy_client, repo)
+    outcome = evaluate_notification(request, _policy(request, policy_client))
     if expect_rule is None:
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
@@ -347,7 +369,7 @@ def test_v5_claim_type_permitted(
     expect_code: str | None,
 ) -> None:
     request = _request(**overrides)
-    outcome = evaluate_notification(request, policy_client, repo)
+    outcome = evaluate_notification(request, _policy(request, policy_client))
     if expect_rule is None:
         _assert_passed(outcome)
         _assert_recorded(request, policy_client, repo)
@@ -355,3 +377,25 @@ def test_v5_claim_type_permitted(
     assert expect_code is not None
     _assert_failed(outcome, expect_rule, expect_code)
     _assert_not_recorded(request, policy_client, repo)
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        pytest.param("timeout", id="POLICY_MASTER_TIMEOUT"),
+        pytest.param("unreachable", id="POLICY_MASTER_UNREACHABLE"),
+        pytest.param("unparsable", id="POLICY_MASTER_UNPARSABLE"),
+    ],
+)
+def test_policy_lookup_failed_is_not_a_rule_outcome(
+    policy_client: StubPolicyClient,
+    repo: NotificationRepository,
+    reason: LookupFailureReason,
+) -> None:
+    policy_client.fail_with = reason
+    request = _request()
+    with pytest.raises(PolicyLookupFailed) as raised:
+        submit_notification(request, policy_client, repo)
+    assert raised.value.reason == reason
+    assert raised.value.policy_number == request.policy_number
+    assert repo.find_matching(request) is None

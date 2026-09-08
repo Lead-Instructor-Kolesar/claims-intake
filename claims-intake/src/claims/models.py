@@ -10,10 +10,10 @@ Implement these against `docs/api-contract.md` sections 2 and 3.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Literal, NewType, Protocol
+from typing import Any, Literal, NewType, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,11 +58,13 @@ class RuleFailure:
     """A rule that did not pass.
 
     `rule` and `code` are distinct types so a rule identifier cannot be passed
-    where an error code is expected.
+    where an error code is expected. `detail` carries the values that produced
+    the decision (WI-0151 AC-2: the existing claim reference).
     """
 
     rule: RuleId
     code: ErrorCode
+    detail: dict[str, Any] = field(default_factory=dict)
 
 
 class NotificationRequest(FnolFields):
