@@ -47,6 +47,15 @@ def _assert_error_envelope(body: dict[str, Any]) -> None:
     assert set(body.keys()) == {"code", "message", "detail"}
 
 
+def _assert_detail(
+    body: dict[str, Any], expected: dict[str, Any], *, absent: tuple[str, ...] = ()
+) -> None:
+    for key, value in expected.items():
+        assert body["detail"][key] == value
+    for key in absent:
+        assert key not in body["detail"]
+
+
 # ---------------------------------------------------------------------------
 # fnol_valid.json: every record must be recorded.
 # ---------------------------------------------------------------------------
@@ -66,14 +75,38 @@ def test_valid_payloads_are_recorded(client: TestClient, fixture: dict[str, Any]
 # fnol_invalid.json: each payload fails exactly one thing.
 # ---------------------------------------------------------------------------
 
-# id -> (expected status, expected code)
-INVALID_EXPECTATIONS: dict[str, tuple[int, str]] = {
-    "INVALID-01": (422, "POLICY_NOT_FOUND"),  # MOT-9999 is not in the policy master.
-    "INVALID-02": (422, "LOSS_BEFORE_INCEPTION"),  # loss precedes MOT-4479's inception.
-    "INVALID-03": (422, "LOSS_AFTER_EXPIRY"),  # loss falls after MOT-4489's expiry.
-    "INVALID-04": (422, "AMOUNT_EXCEEDS_LIMIT"),  # exceeds MOT-4502's 10000.00 limit.
-    "INVALID-05": (422, "TYPE_NOT_COVERED"),  # collision on a liability-only product.
-    "INVALID-07": (422, "POLICY_CANCELLED"),  # loss after cancellation, before expiry.
+# id -> (expected status, expected code, expected detail)
+INVALID_EXPECTATIONS: dict[str, tuple[int, str, dict[str, Any]]] = {
+    "INVALID-01": (
+        422,
+        "POLICY_NOT_FOUND",
+        {"rule": "V-1", "policy_number": "MOT-9999"},
+    ),
+    "INVALID-02": (
+        422,
+        "LOSS_BEFORE_INCEPTION",
+        {"rule": "V-2", "loss_date": "2026-02-20", "effective_date": "2026-03-15"},
+    ),
+    "INVALID-03": (
+        422,
+        "LOSS_AFTER_EXPIRY",
+        {"rule": "V-3", "loss_date": "2026-03-20", "expiry_date": "2026-02-28"},
+    ),
+    "INVALID-04": (
+        422,
+        "AMOUNT_EXCEEDS_LIMIT",
+        {"rule": "V-4", "estimated_amount": "14500.00", "limit": "10000.00"},
+    ),
+    "INVALID-05": (
+        422,
+        "TYPE_NOT_COVERED",
+        {"rule": "V-5", "claim_type": "collision"},
+    ),
+    "INVALID-07": (
+        422,
+        "POLICY_CANCELLED",
+        {"rule": "V-7", "loss_date": "2026-03-05", "cancellation_date": "2026-02-01"},
+    ),
 }
 
 
@@ -83,12 +116,13 @@ INVALID_EXPECTATIONS: dict[str, tuple[int, str]] = {
     ids=[f["id"] for f in INVALID_FIXTURES if f["id"] != "INVALID-06"],
 )
 def test_invalid_payloads_are_refused(client: TestClient, fixture: dict[str, Any]) -> None:
-    expected_status, expected_code = INVALID_EXPECTATIONS[fixture["id"]]
+    expected_status, expected_code, expected_detail = INVALID_EXPECTATIONS[fixture["id"]]
     response = client.post("/notifications", json=fixture["payload"])
     assert response.status_code == expected_status
     body = response.json()
     _assert_error_envelope(body)
     assert body["code"] == expected_code
+    _assert_detail(body, expected_detail)
 
 
 def test_invalid_06_is_a_duplicate_of_valid_01(client: TestClient) -> None:
@@ -102,33 +136,57 @@ def test_invalid_06_is_a_duplicate_of_valid_01(client: TestClient) -> None:
     body = second.json()
     _assert_error_envelope(body)
     assert body["code"] == "DUPLICATE_NOTIFICATION"
-    assert body["detail"]["claim_reference"] == first_reference
+    _assert_detail(body, {"rule": "V-6", "claim_reference": first_reference})
 
 
 # ---------------------------------------------------------------------------
 # fnol_edge.json: per docs/payload-triage.md's classification table.
 # ---------------------------------------------------------------------------
 
-# id -> (expected status, expected code or None for a 201)
-EDGE_EXPECTATIONS: dict[str, tuple[int, str | None]] = {
-    "EDGE-01": (201, None),
-    "EDGE-02": (201, None),
-    "EDGE-03": (201, None),
-    "EDGE-04": (422, "POLICY_CANCELLED"),
-    "EDGE-05": (422, "LOSS_BEFORE_INCEPTION"),
-    "EDGE-06": (422, "AMOUNT_EXCEEDS_LIMIT"),
-    "EDGE-07": (422, "POLICY_NOT_FOUND"),
-    "EDGE-08": (400, "MALFORMED_REQUEST"),
-    "EDGE-09": (422, "TYPE_NOT_COVERED"),
-    "EDGE-10": (422, "POLICY_CANCELLED"),
-    "EDGE-11": (400, "MALFORMED_REQUEST"),
-    "EDGE-12": (400, "MALFORMED_REQUEST"),
+# id -> (expected status, expected code or None for a 201, expected detail)
+EDGE_EXPECTATIONS: dict[str, tuple[int, str | None, dict[str, Any]]] = {
+    "EDGE-01": (201, None, {}),
+    "EDGE-02": (201, None, {}),
+    "EDGE-03": (201, None, {}),
+    "EDGE-04": (
+        422,
+        "POLICY_CANCELLED",
+        {"rule": "V-7", "loss_date": "2026-01-15", "cancellation_date": "2026-01-15"},
+    ),
+    "EDGE-05": (
+        422,
+        "LOSS_BEFORE_INCEPTION",
+        {"rule": "V-2", "loss_date": "2026-03-02", "effective_date": "2026-04-15"},
+    ),
+    "EDGE-06": (
+        422,
+        "AMOUNT_EXCEEDS_LIMIT",
+        {"rule": "V-4", "estimated_amount": "26000.00", "limit": "10000.00"},
+    ),
+    "EDGE-07": (
+        422,
+        "POLICY_NOT_FOUND",
+        {"rule": "V-1", "policy_number": "mot-4471"},
+    ),
+    "EDGE-08": (400, "MALFORMED_REQUEST", {"field": "estimated_amount"}),
+    "EDGE-09": (
+        422,
+        "TYPE_NOT_COVERED",
+        {"rule": "V-5", "claim_type": "collision"},
+    ),
+    "EDGE-10": (
+        422,
+        "POLICY_CANCELLED",
+        {"rule": "V-7", "loss_date": "2026-01-08", "cancellation_date": "2025-10-01"},
+    ),
+    "EDGE-11": (400, "MALFORMED_REQUEST", {"field": "claim_type"}),
+    "EDGE-12": (400, "MALFORMED_REQUEST", {"field": "estimated_amount"}),
 }
 
 
 @pytest.mark.parametrize("fixture", EDGE_FIXTURES, ids=[f["id"] for f in EDGE_FIXTURES])
 def test_edge_payloads_match_triage(client: TestClient, fixture: dict[str, Any]) -> None:
-    expected_status, expected_code = EDGE_EXPECTATIONS[fixture["id"]]
+    expected_status, expected_code, expected_detail = EDGE_EXPECTATIONS[fixture["id"]]
     response = client.post("/notifications", json=fixture["payload"])
     assert response.status_code == expected_status
     body = response.json()
@@ -139,6 +197,8 @@ def test_edge_payloads_match_triage(client: TestClient, fixture: dict[str, Any])
     else:
         _assert_error_envelope(body)
         assert body["code"] == expected_code
+        absent = ("rule",) if expected_code == "MALFORMED_REQUEST" else ()
+        _assert_detail(body, expected_detail, absent=absent)
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +216,7 @@ def test_non_json_body_is_malformed_with_no_field_key(client: TestClient) -> Non
     body = response.json()
     _assert_error_envelope(body)
     assert body["code"] == "MALFORMED_REQUEST"
-    assert "field" not in body["detail"]
+    _assert_detail(body, {}, absent=("field", "rule"))
 
 
 def test_unknown_field_is_malformed_with_field_key(client: TestClient) -> None:
@@ -167,7 +227,7 @@ def test_unknown_field_is_malformed_with_field_key(client: TestClient) -> None:
     body = response.json()
     _assert_error_envelope(body)
     assert body["code"] == "MALFORMED_REQUEST"
-    assert body["detail"]["field"] == "adjuster_notes"
+    _assert_detail(body, {"field": "adjuster_notes"}, absent=("rule",))
 
 
 @pytest.mark.parametrize(
@@ -194,10 +254,11 @@ def test_policy_lookup_failures_map_to_5xx_with_no_rule_key(
     body = response.json()
     _assert_error_envelope(body)
     assert body["code"] == expected_code
-    assert body["detail"].keys() == {"policy_number", "reason"}
-    assert body["detail"]["policy_number"] == payload["policy_number"]
-    assert body["detail"]["reason"] == fail_with
-    assert "rule" not in body["detail"]
+    _assert_detail(
+        body,
+        {"policy_number": payload["policy_number"], "reason": fail_with},
+        absent=("rule",),
+    )
 
 
 def test_duplicate_submission_is_refused_with_original_reference(client: TestClient) -> None:
@@ -212,4 +273,4 @@ def test_duplicate_submission_is_refused_with_original_reference(client: TestCli
     body = second.json()
     _assert_error_envelope(body)
     assert body["code"] == "DUPLICATE_NOTIFICATION"
-    assert body["detail"]["claim_reference"] == first_reference
+    _assert_detail(body, {"rule": "V-6", "claim_reference": first_reference})
