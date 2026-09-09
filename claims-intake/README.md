@@ -5,9 +5,20 @@ master and the rule table in `docs/api-contract.md`, and either records a
 notification and issues a claim reference or refuses the submission with a
 specific reason.
 
-This README is incomplete. Completing it is part of the Day 4 lab, and the
-standard it is graded against is that a person who has never seen this repository
-can follow it to a running service.
+## Running the service
+
+```
+uv run uvicorn claims.api.routes:app --reload
+```
+
+```
+curl -s -X POST http://127.0.0.1:8000/notifications \
+  -H "Content-Type: application/json" \
+  -d '{"policy_number":"MOT-4471","loss_date":"2026-04-02","claim_type":"collision","estimated_amount":"4200.00"}'
+# {"claim_reference":"CLM-2026-000001","status":"recorded"}
+```
+
+Integration tests for the HTTP surface live in `tests/integration/`.
 
 ## Where things are
 
