@@ -1,0 +1,13 @@
+{"id":"S01","task":"summarization","expected_status":"superseded","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"],"version_group":"card-dispute-intake","expected_current_case_id":"S02","as_of":"2025-06-01"}
+{"id":"S02","task":"summarization","expected_status":"valid","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"],"version_group":"card-dispute-intake","expected_current_case_id":"S02","as_of":"2025-06-01"}
+{"id":"S03","task":"summarization","expected_status":"valid","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"]}
+{"id":"S04","task":"summarization","expected_status":"contradictory","recoverable_fields":["title","version","effective_date","purpose","exceptions"]}
+{"id":"S05","task":"summarization","expected_status":"unsupported","recoverable_fields":["title"]}
+{"id":"S06","task":"summarization","expected_status":"valid","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"]}
+{"id":"S07","task":"summarization","expected_status":"valid","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"]}
+{"id":"S08","task":"summarization","expected_status":"valid","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"]}
+{"id":"S09","task":"summarization","expected_status":"contradictory","recoverable_fields":["title","version","effective_date","purpose","exceptions"]}
+{"id":"S10","task":"summarization","expected_status":"valid","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"]}
+{"id":"S11","task":"summarization","expected_status":"valid","recoverable_fields":["title","version","effective_date","purpose","required_steps","exceptions"]}
+{"id":"S12","task":"summarization","expected_status":"unsupported","recoverable_fields":["title"]}
+

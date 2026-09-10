@@ -1,0 +1,13 @@
+{"id":"E01","task":"extraction","expected_status":"superseded","recoverable_fields":["policy_name","version","effective_date","jurisdictions","beneficial_ownership_threshold","review_frequency","required_documents"],"version_group":"small-business-periodic-kyc","expected_current_case_id":"E02","as_of":"2025-06-01"}
+{"id":"E02","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","beneficial_ownership_threshold","review_frequency","required_documents"],"version_group":"small-business-periodic-kyc","expected_current_case_id":"E02","as_of":"2025-06-01"}
+{"id":"E03","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","review_frequency","required_documents"]}
+{"id":"E04","task":"extraction","expected_status":"contradictory","recoverable_fields":["policy_name","version","effective_date","beneficial_ownership_threshold","review_frequency","required_documents"]}
+{"id":"E05","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","beneficial_ownership_threshold","review_frequency","required_documents"]}
+{"id":"E06","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","beneficial_ownership_threshold","review_frequency","required_documents"]}
+{"id":"E07","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","review_frequency","required_documents"]}
+{"id":"E08","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","beneficial_ownership_threshold","review_frequency","required_documents"]}
+{"id":"E09","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","review_frequency","required_documents"]}
+{"id":"E10","task":"extraction","expected_status":"contradictory","recoverable_fields":["policy_name","version","effective_date","beneficial_ownership_threshold","review_frequency","required_documents"]}
+{"id":"E11","task":"extraction","expected_status":"valid","recoverable_fields":["policy_name","version","effective_date","jurisdictions","beneficial_ownership_threshold","review_frequency","required_documents"]}
+{"id":"E12","task":"extraction","expected_status":"unsupported","recoverable_fields":[]}
+

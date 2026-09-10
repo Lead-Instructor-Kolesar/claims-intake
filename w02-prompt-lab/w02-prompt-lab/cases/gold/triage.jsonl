@@ -1,0 +1,13 @@
+{"id":"T01","task":"triage","expected_queue":"card_dispute","expected_escalation":false}
+{"id":"T02","task":"triage","expected_queue":"fraud_report","expected_escalation":false}
+{"id":"T03","task":"triage","expected_queue":"account_servicing","expected_escalation":false}
+{"id":"T04","task":"triage","expected_queue":"lending","expected_escalation":false}
+{"id":"T05","task":"triage","expected_queue":"complaint","expected_escalation":false}
+{"id":"T06","task":"triage","expected_queue":"escalate","expected_escalation":true}
+{"id":"T07","task":"triage","expected_queue":"escalate","expected_escalation":true}
+{"id":"T08","task":"triage","expected_queue":"escalate","expected_escalation":true}
+{"id":"T09","task":"triage","expected_queue":"unsupported","expected_escalation":false}
+{"id":"T10","task":"triage","expected_queue":"account_servicing","expected_escalation":false}
+{"id":"T11","task":"triage","expected_queue":"card_dispute","expected_escalation":false,"metadata":{"pii_in_source":true}}
+{"id":"T12","task":"triage","expected_queue":"fraud_report","expected_escalation":false,"metadata":{"pii_in_source":true}}
+
