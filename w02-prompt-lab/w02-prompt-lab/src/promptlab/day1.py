@@ -114,9 +114,12 @@ def main() -> None:
     run_id = str(uuid.uuid4())
 
     cases_path = PROJECT_ROOT / "cases" / "extraction.jsonl"
-    prompt_path = PROJECT_ROOT / "src" / "prompts" / "baseline.v0.md"
+    prompt_path = PROJECT_ROOT / "prompts" / "baseline.v0.md"
+    if not prompt_path.is_file():
+        prompt_path = PROJECT_ROOT / "src" / "prompts" / "baseline.v0.md"
     prompt_template = prompt_path.read_text(encoding="utf-8")
     cases = load_cases(cases_path, CASE_IDS)
+    max_output_tokens = DEFAULT_MAX_OUTPUT_TOKENS
 
     for case in cases:
         prompt = prompt_template.replace("{document_text}", str(case["source"]))
@@ -125,14 +128,14 @@ def main() -> None:
             model_id=model_id,
             prompt=prompt,
             temperature=temperature,
-            num_predict=DEFAULT_MAX_OUTPUT_TOKENS,
+            num_predict=max_output_tokens,
         )
         record = build_record(
             run_id=run_id,
             model_id=model_id,
             case_id=str(case["id"]),
             temperature=temperature,
-            max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
+            max_output_tokens=max_output_tokens,
             payload=payload,
             latency_ms=latency_ms,
         )
@@ -140,12 +143,13 @@ def main() -> None:
 
     e11 = next(case for case in cases if case["id"] == "E11")
     truncated_prompt = prompt_template.replace("{document_text}", str(e11["source"]))
+    max_output_tokens = TRUNCATION_MAX_OUTPUT_TOKENS
     truncated_payload, truncated_latency_ms = call_ollama(
         base_url=settings.ollama_base_url,
         model_id=model_id,
         prompt=truncated_prompt,
         temperature=temperature,
-        num_predict=TRUNCATION_MAX_OUTPUT_TOKENS,
+        num_predict=max_output_tokens,
     )
     error_type = (
         "TruncatedResponseError" if truncated_payload.get("done_reason") == "length" else None
@@ -155,17 +159,19 @@ def main() -> None:
         model_id=model_id,
         case_id="E11",
         temperature=temperature,
-        max_output_tokens=TRUNCATION_MAX_OUTPUT_TOKENS,
+        max_output_tokens=max_output_tokens,
         payload=truncated_payload,
         latency_ms=truncated_latency_ms,
         error_type=error_type,
     )
     append_record(truncated_record, run_id)
+    max_output_tokens = DEFAULT_MAX_OUTPUT_TOKENS
     print(f"run_id={run_id}")
     print(
         "truncation done_reason="
         f"{truncated_payload.get('done_reason')} error_type={error_type}"
     )
+    print(f"restored max_output_tokens={max_output_tokens}")
 
 
 if __name__ == "__main__":
