@@ -12,12 +12,30 @@ from promptlab.config import Settings
 from promptlab.usage import CallRecord
 
 
+def test_load_cases_rejects_a_non_object_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "cases.jsonl"
+    path.write_text('{"id":"S01","task":"summarization","source":"x"}\n[1,2]\n', encoding="utf-8")
+    monkeypatch.setattr(day2, "CASES_PATH", path)
+
+    with pytest.raises(ValueError, match="non-object"):
+        day2.load_cases()
+
+
 def test_load_cases_returns_all_twelve_in_file_order() -> None:
     cases = day2.load_cases()
 
     assert [case["id"] for case in cases] == [f"S{index:02d}" for index in range(1, 13)]
     assert {case["task"] for case in cases} == {"summarization"}
     assert all(case["source"] for case in cases)
+
+
+def test_split_prompt_without_document_marker_puts_all_text_in_user() -> None:
+    system, user_content = day2.split_prompt("Prefix {document_text}", "BODY")
+
+    assert system == ""
+    assert user_content == "Prefix BODY"
 
 
 def test_split_prompt_uses_the_same_baseline_for_every_case() -> None:
@@ -76,8 +94,27 @@ def test_summarize_reports_counts_tokens_and_latency() -> None:
     assert "model-b" in text
     assert "1.6 times the output tokens" in text
     assert "2.2 times the median latency" in text
+    assert "truncated attempts" in text
     assert "\u2014" not in text
     assert "$" not in text
+
+
+def test_summarize_handles_empty_and_single_model_runs() -> None:
+    assert day2.summarize([]) == "No model calls were recorded.\n"
+
+    one = day2.summarize([_record("only-model", "S01", 10, 2, 5)])
+    assert "only-model recorded 1 successes in 1 attempts" in one
+    assert "A second configured model is needed" in one
+
+
+def test_summarize_notes_nonzero_cost_without_inventing_a_price() -> None:
+    record = _record("model-a", "S01", 10, 2, 5)
+    record = record.model_copy(update={"cost_usd": 0.01})
+    text = day2.summarize([record, _record("model-b", "S01", 8, 0, 9)])
+
+    assert "were not all 0.0" in text
+    assert "does not invent a price" in text
+    assert "n/a times the output tokens" in text
 
 
 def test_main_runs_both_models_with_identical_request_fields(
@@ -167,6 +204,30 @@ def test_main_runs_both_models_with_identical_request_fields(
     assert "attempts: 12" in comparison
     assert "cost_usd is 0.0" in comparison
     assert "\u2014" not in comparison
+
+
+def test_main_skips_a_result_with_no_records(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class EmptyAdapter:
+        def __init__(self, model_id: str, base_url: str) -> None:
+            self.model_id = model_id
+
+        def complete(self, request: CompletionRequest, run_id: str) -> CompletionResult:
+            return CompletionResult(succeeded=False, text=None, error_type=None, records=[])
+
+    monkeypatch.setattr(day2, "OllamaAdapter", EmptyAdapter)
+    monkeypatch.setattr(day2, "append_record", lambda *_args: None)
+    monkeypatch.setattr(day2, "DOCS_RUN_PATH", tmp_path / "day2-run.jsonl")
+    monkeypatch.setattr(day2, "DOCS_COMPARISON_PATH", tmp_path / "day2-comparison.md")
+
+    day2.main()
+    out = capsys.readouterr().out
+    assert "no attempt recorded" in out
+    assert (tmp_path / "day2-run.jsonl").read_text(encoding="utf-8") == ""
+    assert "No model calls were recorded" in (tmp_path / "day2-comparison.md").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_model_identifiers_and_ollama_fields_stay_inside_the_adapter() -> None:
