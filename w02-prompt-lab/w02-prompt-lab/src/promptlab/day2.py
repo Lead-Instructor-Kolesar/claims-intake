@@ -98,8 +98,9 @@ def build_comparison(run_path: Path) -> str:
     lines = [
         "# Day 2 local model comparison",
         "",
-        "Both models ran through Ollama. Local provider/API charge is 0.0; "
-        "this note does not invent a cloud price.",
+        "Both models ran through Ollama with thinking disabled so the shared "
+        "256-token ceiling is spent on the answer. Local provider/API charge "
+        "is 0.0; this note does not invent a cloud price.",
         "",
     ]
     observations: list[str] = []
