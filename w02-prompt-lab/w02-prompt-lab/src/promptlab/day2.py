@@ -15,7 +15,7 @@ from promptlab.config import PROJECT_ROOT, Settings
 PROMPT_ID = "baseline"
 PROMPT_VERSION = "v0"
 TASK: Literal["summarization"] = "summarization"
-MAX_OUTPUT_TOKENS = 1024
+MAX_OUTPUT_TOKENS = 256
 DOCUMENT_OPEN = "<document>"
 
 
@@ -98,9 +98,9 @@ def build_comparison(run_path: Path) -> str:
     lines = [
         "# Day 2 local model comparison",
         "",
-        "Both models ran through Ollama at the default thinking setting with a "
-        "shared 1024-token ceiling. Local provider/API charge is 0.0; "
-        "this note does not invent a cloud price.",
+        "Both models ran through Ollama with thinking disabled so the shared "
+        "256-token ceiling is spent on the answer. Local provider/API charge "
+        "is 0.0; this note does not invent a cloud price.",
         "",
     ]
     observations: list[str] = []
