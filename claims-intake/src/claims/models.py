@@ -1,42 +1,104 @@
-"""Boundary models for the claims intake service.
+"""Request and policy shapes from contract sections 2 and 3.
 
-Everything that enters the service is parsed into one of these before any rule
-runs. A payload that reaches the rule layer has already been proven well formed,
-which is what keeps a shape problem and a content problem from arriving at the
-caller as the same status code.
-
-Day 2 assignment. Implement these against `docs/api-contract.md` sections 2 and 3.
+A payload that fails these models is uninterpretable (W-*). Whether the
+policy exists or the loss is covered is a rule and belongs in service.py.
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
+
+ClaimType = Literal["collision", "theft", "glass", "liability", "weather"]
+
+RuleIdentifier = Literal[
+    "W-1",
+    "W-2",
+    "W-3",
+    "V-1",
+    "V-2",
+    "V-3",
+    "V-4",
+    "V-5",
+    "V-6",
+    "V-7",
+]
+
+ErrorCode = Literal[
+    "MALFORMED_REQUEST",
+    "DUPLICATE_NOTIFICATION",
+    "POLICY_NOT_FOUND",
+    "LOSS_BEFORE_INCEPTION",
+    "LOSS_AFTER_EXPIRY",
+    "AMOUNT_EXCEEDS_LIMIT",
+    "TYPE_NOT_COVERED",
+    "POLICY_CANCELLED",
+]
+
+CLAIM_REFERENCE_PATTERN = r"^CLM-\d{4}-\d{6}$"
+
+
+def _exactly_two_decimal_places(value: object) -> object:
+    # W-3 / section 2.2: Field(decimal_places=2) would pad 3499 to 3499.00.
+    if isinstance(value, bool):
+        raise TypeError("money values are not booleans")
+    if isinstance(value, int):
+        value = Decimal(value)
+    if isinstance(value, Decimal):
+        if value.as_tuple().exponent != -2:
+            raise ValueError("decimal scale must be exactly 2")
+        return value
+    if isinstance(value, str):
+        if "." not in value:
+            raise ValueError("decimal scale must be exactly 2")
+        fraction = value.rsplit(".", 1)[1]
+        if len(fraction) != 2 or not fraction.isdigit():
+            raise ValueError("decimal scale must be exactly 2")
+        return value
+    return value
+
+
+UsdToTheCent = Annotated[
+    Decimal,
+    BeforeValidator(_exactly_two_decimal_places),
+    Field(gt=0, max_digits=16),
+]
 
 
 class NotificationRequest(BaseModel):
-    """A first notice of loss as submitted by the claims portal.
+    # Section 2.2: a misspelled key must not be ignored.
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
-    Fields and their constraints are specified in contract section 2.2. The model
-    is responsible for the shape of the request and for nothing else. Whether the
-    policy exists, whether the loss falls inside the term, and whether the amount
-    is within the limit are rules, and rules live in `service.py`.
-
-    `policy_number` is declared so that the V-1 rule in `service.py` has something
-    to read. Every other field, and every constraint on every field including this
-    one, is Day 2's work.
-    """
-
-    policy_number: str
+    policy_number: Annotated[str, StringConstraints(min_length=1)]
+    loss_date: date
+    claim_type: ClaimType
+    estimated_amount: UsdToTheCent
+    description: str | None = None
 
 
 class Policy(BaseModel):
-    """A policy as this service works with it.
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
-    Built from the `PolicyRecord` the policy client returns. The fields the rules
-    compare against are the reason this model exists.
+    policy_number: Annotated[str, StringConstraints(min_length=1)]
+    product: str
+    effective_date: date
+    expiry_date: date
+    # WI-0158 AC-3: null means not cancelled. Comparing without handling
+    # None is a type error, not a missed branch.
+    cancellation_date: date | None
+    limit: UsdToTheCent
+    permitted_claim_types: tuple[ClaimType, ...]
 
-    Day 2 assignment: declare the fields.
-    """
+
+@dataclass(frozen=True)
+class RuleFailure:
+    # Separate Literals so a rule id cannot be passed where a section-6 code is expected.
+    rule: RuleIdentifier
+    code: ErrorCode
 
 
 class RecordedNotification(BaseModel):
@@ -44,6 +106,26 @@ class RecordedNotification(BaseModel):
 
     Carries the claim reference issued at the time it was recorded. Contract
     section 3 fixes the reference format.
-
-    Day 2 assignment: declare the fields.
     """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    claim_reference: Annotated[str, StringConstraints(pattern=CLAIM_REFERENCE_PATTERN)]
+    policy_number: Annotated[str, StringConstraints(min_length=1)]
+    loss_date: date
+    claim_type: ClaimType
+    estimated_amount: UsdToTheCent
+    description: str | None = None
+
+    @classmethod
+    def from_accepted(
+        cls, notification: NotificationRequest, claim_reference: str
+    ) -> RecordedNotification:
+        return cls(
+            claim_reference=claim_reference,
+            policy_number=notification.policy_number,
+            loss_date=notification.loss_date,
+            claim_type=notification.claim_type,
+            estimated_amount=notification.estimated_amount,
+            description=notification.description,
+        )

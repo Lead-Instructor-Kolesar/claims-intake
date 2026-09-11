@@ -1,0 +1,30 @@
+name: checks
+
+on:
+  pull_request:
+
+defaults:
+  run:
+    working-directory: claims-intake
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies from lockfile
+        run: uv sync --frozen --group dev
+
+      - name: ruff
+        run: uv run ruff check .
+
+      - name: mypy
+        run: uv run mypy src tests
+
+      - name: pytest
+        run: uv run pytest
