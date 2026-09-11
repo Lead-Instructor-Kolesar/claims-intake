@@ -70,6 +70,8 @@ def test_successful_completion_records_one_attempt(
     monkeypatch.chdir(tmp_path)
     adapter = configured_adapter()
 
+    captured: dict[str, Any] = {}
+
     class FakeResponse:
         status_code = 200
 
@@ -81,11 +83,14 @@ def test_successful_completion_records_one_attempt(
                 "done_reason": "stop",
             }
 
-    monkeypatch.setattr(
-        "promptlab.adapters.ollama.httpx.post",
-        lambda *args, **kwargs: FakeResponse(),
-    )
+    def fake_post(*args: object, **kwargs: object) -> FakeResponse:
+        captured.update(kwargs)
+        return FakeResponse()
+
+    monkeypatch.setattr("promptlab.adapters.ollama.httpx.post", fake_post)
     result = adapter.complete(make_request(), "run-ok")
+    assert captured["json"]["think"] is False
+    assert captured["json"]["options"]["num_predict"] == make_request().max_output_tokens
 
     assert result.succeeded is True
     assert result.text == "summary"

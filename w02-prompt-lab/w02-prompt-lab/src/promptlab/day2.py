@@ -129,12 +129,18 @@ def build_comparison(run_path: Path) -> str:
         )
         error_counts: dict[str, int] = {}
         for record in model_records:
-            key = str(record.get("error_type") or "none")
-            error_counts[key] = error_counts.get(key, 0) + 1
-        error_note = ", ".join(f"{name}={count}" for name, count in sorted(error_counts.items()))
+            key = str(record.get("error_type") or "")
+            if key:
+                error_counts[key] = error_counts.get(key, 0) + 1
+        if error_counts:
+            error_note = "errors " + ", ".join(
+                f"{name}={count}" for name, count in sorted(error_counts.items())
+            )
+        else:
+            error_note = "no recorded errors"
         observations.append(
-            f"{model_id} completed {successes}/{len(case_ids)} cases "
-            f"({error_note}) with {input_tokens} input tokens, {output_tokens} output tokens, "
+            f"{model_id} completed {successes}/{len(case_ids)} cases ({error_note}) "
+            f"with {input_tokens} input tokens, {output_tokens} output tokens, "
             f"median latency {median_latency} ms and max latency {max_latency} ms."
         )
     lines.append("## Observation")

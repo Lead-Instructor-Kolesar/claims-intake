@@ -6,7 +6,7 @@ import random
 import time
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -29,7 +29,7 @@ TRANSIENT_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 class OllamaAdapter:
     """One adapter class; Mistral and Qwen differ only by configured model_id."""
 
-    provider: str = "ollama"
+    provider: Literal["ollama"] = "ollama"
 
     def __init__(self, model_id: str, base_url: str | None = None) -> None:
         settings = Settings.from_env()
@@ -40,10 +40,15 @@ class OllamaAdapter:
     def complete(self, request: CompletionRequest, run_id: str) -> CompletionResult:
         records: list[CallRecord] = []
         for attempt in range(1, MAX_ATTEMPTS + 1):
+            started = time.perf_counter()
             try:
-                payload, latency_ms = self._generate(request)
+                payload = self._generate(request)
+                latency_ms = int((time.perf_counter() - started) * 1000)
             except TransientProviderError as exc:
-                record = self._failure_record(request, run_id, attempt, 0, type(exc).__name__)
+                latency_ms = int((time.perf_counter() - started) * 1000)
+                record = self._failure_record(
+                    request, run_id, attempt, latency_ms, type(exc).__name__
+                )
                 records.append(record)
                 append_record(record, run_id)
                 if attempt < MAX_ATTEMPTS:
@@ -56,7 +61,10 @@ class OllamaAdapter:
                     records=records,
                 )
             except PermanentProviderError as exc:
-                record = self._failure_record(request, run_id, attempt, 0, type(exc).__name__)
+                latency_ms = int((time.perf_counter() - started) * 1000)
+                record = self._failure_record(
+                    request, run_id, attempt, latency_ms, type(exc).__name__
+                )
                 records.append(record)
                 append_record(record, run_id)
                 return CompletionResult(
@@ -67,6 +75,10 @@ class OllamaAdapter:
                 )
 
             text = payload.get("response")
+            if text is None:
+                message = payload.get("message")
+                if isinstance(message, dict):
+                    text = message.get("content")
             response_text = str(text) if text is not None else None
             stop_reason = payload.get("done_reason")
             stop_reason_text = str(stop_reason) if stop_reason is not None else None
@@ -122,8 +134,7 @@ class OllamaAdapter:
             records=records,
         )
 
-    def _generate(self, request: CompletionRequest) -> tuple[dict[str, Any], int]:
-        started = time.perf_counter()
+    def _generate(self, request: CompletionRequest) -> dict[str, Any]:
         try:
             response = httpx.post(
                 f"{self.base_url}/api/generate",
@@ -132,6 +143,7 @@ class OllamaAdapter:
                     "system": request.system,
                     "prompt": request.user_content,
                     "stream": False,
+                    "think": False,
                     "options": {
                         "temperature": request.temperature,
                         "num_predict": request.max_output_tokens,
@@ -144,7 +156,6 @@ class OllamaAdapter:
         except httpx.HTTPError as exc:
             raise PermanentProviderError(str(exc)) from exc
 
-        latency_ms = int((time.perf_counter() - started) * 1000)
         if response.status_code in TRANSIENT_STATUS_CODES:
             raise TransientProviderError(f"HTTP {response.status_code}")
         if response.status_code >= 400:
@@ -157,7 +168,7 @@ class OllamaAdapter:
 
         if payload.get("error"):
             raise PermanentProviderError(str(payload["error"]))
-        return payload, latency_ms
+        return payload
 
     def _backoff(self, attempt: int) -> None:
         delay = BACKOFF_BASE_SECONDS * (2 ** (attempt - 1))
@@ -200,7 +211,7 @@ class OllamaAdapter:
             record_id=str(uuid.uuid4()),
             run_id=run_id,
             timestamp=datetime.now(UTC),
-            provider="ollama",
+            provider=self.provider,
             model_id=self.model_id,
             task=request.task,
             case_id=request.case_id,
