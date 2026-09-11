@@ -107,10 +107,7 @@ def main() -> None:
     settings = Settings.from_env()
     template = PROMPT_PATH.read_text(encoding="utf-8")
     run_id = str(uuid4())
-    prepared = [
-        (case, *split_prompt(template, str(case["source"])))
-        for case in load_cases()
-    ]
+    prepared = [(case, *split_prompt(template, str(case["source"]))) for case in load_cases()]
     collected: list[CallRecord] = []
 
     for model in settings.models.values():

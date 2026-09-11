@@ -52,9 +52,10 @@ def classify_status(status: int, message: str) -> Exception:
 class OllamaAdapter:
     provider = "ollama"
 
-    def __init__(self, model_id: str, base_url: str) -> None:
+    def __init__(self, model_id: str, base_url: str | None = None) -> None:
         self.model_id = model_id
-        self.base_url = base_url.rstrip("/")
+        resolved = base_url if base_url is not None else Settings.from_env().ollama_base_url
+        self.base_url = resolved.rstrip("/")
 
     def complete(self, request: CompletionRequest, run_id: str) -> CompletionResult:
         self._require_known_model()
@@ -124,11 +125,13 @@ class OllamaAdapter:
                 },
                 timeout=REQUEST_TIMEOUT_SECONDS,
             )
-            response.raise_for_status()
-        except httpx.HTTPStatusError as err:
-            raise classify_status(err.response.status_code, err.response.text) from err
         except httpx.TransportError as err:
             raise TransientProviderError(str(err)) from err
+
+        status = int(getattr(response, "status_code", 200))
+        if status >= 400:
+            body = getattr(response, "text", "") or ""
+            raise classify_status(status, str(body))
 
         try:
             payload = response.json()
