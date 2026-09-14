@@ -1,6 +1,6 @@
 from typing import Literal, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from promptlab.usage import CallRecord
 
@@ -14,6 +14,14 @@ class CompletionRequest(BaseModel):
     user_content: str
     temperature: float
     max_output_tokens: int
+
+    @field_validator("task", mode="before")
+    @classmethod
+    def coerce_task_aliases(cls, value: object) -> object:
+        aliases = {"summarize": "summarization", "extract": "extraction"}
+        if isinstance(value, str):
+            return aliases.get(value, value)
+        return value
 
 
 class CompletionResult(BaseModel):
