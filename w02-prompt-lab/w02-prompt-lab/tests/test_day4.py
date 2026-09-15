@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -7,7 +8,8 @@ import pytest
 
 from promptlab.config import PROJECT_ROOT
 from promptlab.records import OutputRecord, ScoreRecord
-from promptlab.schemas import TriageOutput
+from promptlab.schemas import TriageOutput, TriageOutputWithAnalysis
+from promptlab.scoring import _boundary_holds
 from promptlab.usage import CallRecord
 
 PROMPT_DIR = PROJECT_ROOT / "src" / "prompts"
@@ -128,6 +130,38 @@ def test_day4_does_not_open_prompt_files_directly() -> None:
     assert "triage.v1.md" not in source
     assert "triage.v2.md" not in source
     assert "load(" in source
+
+
+def test_committed_day4_drafts_pass_human_boundary() -> None:
+    path = PROJECT_ROOT / "docs" / "day4-run.jsonl"
+    rows = [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(rows) == 24
+    assert len({row["run_id"] for row in rows}) == 1
+    for row in rows:
+        schema = TriageOutput if row["prompt_version"] == "v1" else TriageOutputWithAnalysis
+        output = schema.model_validate(row["output"])
+        assert _boundary_holds(output), row["case_id"] + " " + row["prompt_version"]
+        if row["prompt_version"] == "v1":
+            assert "analysis" not in row["output"]
+        else:
+            assert isinstance(output, TriageOutputWithAnalysis)
+            assert output.analysis
+
+
+def test_committed_day4_notes_use_counts_and_zero_cost() -> None:
+    notes = (PROJECT_ROOT / "docs" / "day4-notes.md").read_text(encoding="utf-8")
+    assert "queue correct:" in notes
+    assert "human-boundary passes: 12/12" in notes
+    assert "Provider/API cost: $0.00" in notes
+    assert "output-token difference" in notes
+    assert "changed-queue count:" in notes
+    assert "observation count:" in notes
+    assert "Temperature: 0.0" in notes
+    assert "mistral:7b" in notes
 
 
 def _output(case_id: str, prompt_version: str, queue: str) -> OutputRecord:
