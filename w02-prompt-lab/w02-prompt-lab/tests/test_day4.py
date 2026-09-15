@@ -124,6 +124,7 @@ def test_format_notes_uses_counts_and_zero_cost() -> None:
     assert "run-1" in notes
     assert "mistral:7b" in notes
     assert "observation count: 2" in notes
+    assert "T01: v1=40 v2=55" in notes
 
 
 def test_day4_does_not_open_prompt_files_directly() -> None:

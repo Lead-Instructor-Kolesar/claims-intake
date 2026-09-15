@@ -136,6 +136,13 @@ def _metric_total(
     return numerator, denominator
 
 
+def _format_ms(value: float | int) -> str:
+    rounded = round(float(value), 1)
+    if rounded == int(rounded):
+        return str(int(rounded))
+    return f"{rounded:.1f}"
+
+
 def _calls_for(calls: Sequence[CallRecord], prompt_version: str) -> list[CallRecord]:
     return [record for record in calls if record.prompt_version == prompt_version]
 
@@ -164,8 +171,8 @@ def _version_block(
         f"unnecessary escalations: {unnecessary}",
         f"human-boundary passes: {bound_n}/{bound_d}",
         f"output tokens: {output_tokens}",
-        f"median latency: {median_latency} ms",
-        f"maximum latency: {max_latency} ms",
+        f"median latency: {_format_ms(median_latency)} ms",
+        f"maximum latency: {_format_ms(max_latency)} ms",
         "",
     ]
 
@@ -181,17 +188,44 @@ def format_notes(
     v1_tokens = sum(record.output_tokens for record in _calls_for(calls, "v1"))
     v2_tokens = sum(record.output_tokens for record in _calls_for(calls, "v2"))
     token_delta = v2_tokens - v1_tokens
+    queue_v1, queue_d1 = _metric_total(scores, "v1", "queue_accuracy")
+    queue_v2, queue_d2 = _metric_total(scores, "v2", "queue_accuracy")
     all_zero_cost = all(record.cost_usd == 0.0 for record in calls) if calls else True
     cost_line = (
         "Provider/API cost: $0.00"
         if all_zero_cost
         else "Recorded cost_usd values were not all 0.0. This note still does not invent a price."
     )
-    conclusion = (
-        "The v2 analysis field is an overhead measurement on twelve cases, not proof that "
-        "one prompt is universally better. A one-case swing should not be treated as a "
-        "general ranking."
-    )
+    if queue_v2 > queue_v1 and token_delta > 0:
+        conclusion = (
+            f"v2 gained {queue_v2 - queue_v1} extra correct queue on a {queue_d1}-case set "
+            f"while using {token_delta} more output tokens. That is not enough to treat the "
+            "analysis field as generally better."
+        )
+    elif queue_v2 < queue_v1:
+        conclusion = (
+            f"v2 used {token_delta} extra output tokens and median latency rose, while queue "
+            f"accuracy fell from {queue_v1}/{queue_d1} to {queue_v2}/{queue_d2}. The analysis "
+            "field did not earn its overhead on this twelve-case set."
+        )
+    else:
+        conclusion = (
+            f"Queue accuracy stayed {queue_v1}/{queue_d1} while v2 used {token_delta} extra "
+            "output tokens. The analysis field did not improve routing enough to justify the "
+            "added generation cost."
+        )
+
+    per_case_lines = ["output tokens per case:"]
+    case_ids = sorted({record.case_id for record in calls})
+    tokens_by_case: dict[str, dict[str, int]] = {}
+    for record in calls:
+        tokens_by_case.setdefault(record.case_id, {})[record.prompt_version] = record.output_tokens
+    for case_id in case_ids:
+        versions = tokens_by_case.get(case_id, {})
+        per_case_lines.append(
+            f"{case_id}: v1={versions.get('v1', 0)} v2={versions.get('v2', 0)}"
+        )
+
     lines = [
         "# Day 4 notes",
         "",
@@ -205,6 +239,8 @@ def format_notes(
         f"output-token difference (v2 - v1): {token_delta}",
         f"observation count: {len(calls)}",
         cost_line,
+        "",
+        *per_case_lines,
         "",
         conclusion,
         "",
