@@ -46,9 +46,9 @@ def _repair_request(
                 f"Validation error:\n{error}\n"
                 "Correct only what the validation error concerns. "
                 "Return a filled JSON instance, not a JSON Schema. "
-                "Every evidence field must include value, status, and citation. "
-                "value must be a string, a list of strings, or null — never an object. "
-                "If status is absent, value must be null. "
+                "Use JSON true/false for booleans, never the strings True or False. "
+                "Use JSON null, never the string \"null\". "
+                "Keep every required field with a schema-valid value. "
                 "Return only valid JSON for the requested schema."
             )
         }
