@@ -19,9 +19,13 @@ PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
 
 DOCUMENT_MARKER_CLOSE = "</document>"
 CUSTOMER_MARKER_CLOSE = "</customer_message>"
+_CUSTOMER_ESCAPED = CUSTOMER_MARKER_CLOSE.replace("<", "&lt;").replace(">", "&gt;")
+_DOCUMENT_ESCAPED = DOCUMENT_MARKER_CLOSE.replace("<", "&lt;").replace(">", "&gt;")
 
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9_-]+$")
 _PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_CUSTOMER_CLOSE = re.compile(r"</\s*customer_message\s*>", re.IGNORECASE)
+_DOCUMENT_CLOSE = re.compile(r"</\s*document\s*>", re.IGNORECASE)
 
 
 class MissingPromptVariableError(ValueError):
@@ -94,9 +98,8 @@ def _placeholders(template: str) -> set[str]:
 
 
 def _escape_untrusted(text: str) -> str:
-    return text.replace(CUSTOMER_MARKER_CLOSE, "&lt;/customer_message&gt;").replace(
-        DOCUMENT_MARKER_CLOSE, "&lt;/document&gt;"
-    )
+    escaped = _CUSTOMER_CLOSE.sub(_CUSTOMER_ESCAPED, text)
+    return _DOCUMENT_CLOSE.sub(_DOCUMENT_ESCAPED, escaped)
 
 
 def render_user(
