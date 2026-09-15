@@ -14,10 +14,6 @@ PROMPT_DIR = PROJECT_ROOT / "src" / "prompts"
 TRIAGE_V1 = PROMPT_DIR / "triage.v1.md"
 TRIAGE_V2 = PROMPT_DIR / "triage.v2.md"
 
-PROMPT_DIR = PROJECT_ROOT / "src" / "prompts"
-TRIAGE_V1 = PROMPT_DIR / "triage.v1.md"
-TRIAGE_V2 = PROMPT_DIR / "triage.v2.md"
-
 
 def test_triage_prompts_live_under_src_prompts() -> None:
     assert TRIAGE_V1.is_file()
