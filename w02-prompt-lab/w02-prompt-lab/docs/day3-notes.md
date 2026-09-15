@@ -4,12 +4,12 @@ Model: mistral:7b (logical name mistral), temperature 0.0, one run_id. Summariza
 
 ## Metrics
 
-- Summarization repair rate: 11/12 (91.7%)
+- Summarization repair rate: 3/12 (25.0%)
 - Extraction repair rate: 0/12 (0.0%)
 - Example leakage count: 0 of 12 extraction outputs contained n-grams distinctive to the two few-shot example documents
 - Citation-existence failures: 0 evidence fields with status "present" whose citation does not match a real section heading in the case source
 
 ## Most common validation error
 
-The most common first-pass validation failure was the "8 validation errors for SummarizationOutput\ndocument_status\n  Field required [type=missing, input_value={'SummarizationOutput': {...ent', 'citation': '4'}}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\ntitle\n  Field required [type=missing, input_value={'SummarizationOutput': {...ent', 'citation': '4'}}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\nversion\n  Field required [type=missing, input_value={'SummarizationOutput': {...ent', 'citation': '4'}}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\neffective_date\n  Field required [type=missing, input_value={'SummarizationOutput': {...ent', 'citation': '4'}}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\npurpose\n  Field required [type=missing, input_value={'SummarizationOutput': {...ent', 'citation': '4'}}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\nrequired_steps\n  Field required [type=missing, input_value={'SummarizationOutput': {...ent', 'citation': '4'}}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\nexceptions\n  Field required [type=missing, input_value={'SummarizationOutput': {...ent', 'citation': '4'}}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing\nSummarizationOutput\n  Extra inputs are not permitted [type=extra_forbidden, input_value={'document_status': 'vali...sent', 'citation': '4'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/extra_forbidden" error class, seen in 7 of 11 first attempts that failed validation.
-The repair request repeated the delimited document together with the previous response and the validation error and asked the model to correct only that concern; this recovered 0 of 11 first-pass failures.
+The most common first-pass validation failure was the "1 validation error for SummarizationOutput\nrequired_steps.citation\n  Input should be a valid string [type=string_type, input_value=['3'], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.11/v/string_type" error class, seen in 1 of 3 first attempts that failed validation.
+The repair request repeated the delimited document together with the previous response and the validation error and asked the model to correct only that concern; this recovered 1 of 3 first-pass failures.
