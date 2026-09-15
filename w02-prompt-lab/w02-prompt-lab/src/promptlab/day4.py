@@ -15,7 +15,7 @@ from promptlab.config import PROJECT_ROOT, Settings
 from promptlab.prompts import load, render_user
 from promptlab.records import OutputRecord
 from promptlab.records import append_record as append_lab_record
-from promptlab.schemas import TriageOutput
+from promptlab.schemas import TriageOutput, TriageOutputWithAnalysis
 from promptlab.scoring import load_triage_gold, score_triage_output
 from promptlab.structured import complete_structured
 from promptlab.usage import CallRecord, append_record
@@ -143,6 +143,9 @@ def main() -> None:
     if SCORE_DOCS_PATH.exists():
         SCORE_DOCS_PATH.unlink()
 
+    cases = load_cases(CASES_PATH)
+    gold = load_triage_gold()
+    temperature = 0.0
     run_prompt_version(
         adapter=adapter,
         run_id=run_id,
@@ -150,9 +153,20 @@ def main() -> None:
         model_id=model_id,
         prompt_version="v1",
         schema=TriageOutput,
-        cases=load_cases(CASES_PATH),
-        gold=load_triage_gold(),
-        temperature=0.0,
+        cases=cases,
+        gold=gold,
+        temperature=temperature,
+    )
+    run_prompt_version(
+        adapter=adapter,
+        run_id=run_id,
+        model_name=model_name,
+        model_id=model_id,
+        prompt_version="v2",
+        schema=TriageOutputWithAnalysis,
+        cases=cases,
+        gold=gold,
+        temperature=temperature,
     )
     copy_run_docs(run_id)
     print(f"run_id={run_id}", flush=True)
