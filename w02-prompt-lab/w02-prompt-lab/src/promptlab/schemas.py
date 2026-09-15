@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -77,6 +78,35 @@ class PolicyExtraction(StrictModel):
             "review_frequency": self.review_frequency,
             "required_documents": self.required_documents,
         }
+
+
+class ProcedureSummary(StrictModel):
+    document_status: DocumentStatus
+    version: EvidenceField
+    effective_date: EvidenceField
+    superseded: EvidenceField
+    scope: EvidenceField
+    required_analyst_actions: EvidenceField
+    evidence_to_gather: EvidenceField
+    deadlines: EvidenceField
+    out_of_scope: EvidenceField
+
+    def evidence_fields(self) -> dict[str, EvidenceField]:
+        return {
+            "version": self.version,
+            "effective_date": self.effective_date,
+            "superseded": self.superseded,
+            "scope": self.scope,
+            "required_analyst_actions": self.required_analyst_actions,
+            "evidence_to_gather": self.evidence_to_gather,
+            "deadlines": self.deadlines,
+            "out_of_scope": self.out_of_scope,
+        }
+
+
+def schema_description(model: type[BaseModel]) -> str:
+    """Return a generated JSON Schema string for inclusion in a prompt."""
+    return json.dumps(model.model_json_schema(), indent=2)
 
 
 OUTPUT_SCHEMAS: dict[TaskName, type[StrictModel]] = {
