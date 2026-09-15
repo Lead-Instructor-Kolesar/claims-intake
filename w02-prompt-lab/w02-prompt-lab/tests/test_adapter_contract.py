@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import get_args
+from pathlib import Path
+from typing import Any, get_args
 
 import httpx
 import pytest
@@ -129,12 +130,14 @@ class FakeResponse:
         return self._payload
 
 
-def test_success_maps_ollama_usage_into_call_record(monkeypatch, tmp_path) -> None:
+def test_success_maps_ollama_usage_into_call_record(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.chdir(tmp_path)
 
     calls = 0
 
-    def fake_post(*args, **kwargs) -> FakeResponse:
+    def fake_post(*args: Any, **kwargs: Any) -> FakeResponse:
         nonlocal calls
         calls += 1
         return FakeResponse(
@@ -165,14 +168,14 @@ def test_success_maps_ollama_usage_into_call_record(monkeypatch, tmp_path) -> No
 
 
 def test_transient_failure_retries_and_records_each_attempt(
-    monkeypatch,
-    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
     calls = 0
 
-    def flaky_post(*args, **kwargs) -> FakeResponse:
+    def flaky_post(*args: Any, **kwargs: Any) -> FakeResponse:
         nonlocal calls
         calls += 1
         if calls < 3:
@@ -193,12 +196,14 @@ def test_transient_failure_retries_and_records_each_attempt(
     assert result.records[2].error_type is None
 
 
-def test_permanent_failure_is_not_retried(monkeypatch, tmp_path) -> None:
+def test_permanent_failure_is_not_retried(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.chdir(tmp_path)
 
     calls = 0
 
-    def bad_request(*args, **kwargs) -> FakeResponse:
+    def bad_request(*args: Any, **kwargs: Any) -> FakeResponse:
         nonlocal calls
         calls += 1
         return FakeResponse(status_code=400, text="bad request")
@@ -216,12 +221,14 @@ def test_permanent_failure_is_not_retried(monkeypatch, tmp_path) -> None:
     assert result.records[0].error_type == PermanentProviderError.__name__
 
 
-def test_truncation_is_recorded_and_not_retried(monkeypatch, tmp_path) -> None:
+def test_truncation_is_recorded_and_not_retried(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.chdir(tmp_path)
 
     calls = 0
 
-    def truncated(*args, **kwargs) -> FakeResponse:
+    def truncated(*args: Any, **kwargs: Any) -> FakeResponse:
         nonlocal calls
         calls += 1
         return FakeResponse(
