@@ -1,9 +1,21 @@
-You are reviewing an internal small-business KYC policy document.
+Baseline Prompt v0
 
-Use only the document supplied below. Identify the policy name, version, effective date, jurisdictions, beneficial-ownership threshold, review frequency, and required documents. If a field is not stated, say that it is not stated. If the document contains conflicting information, report the conflict rather than resolving it yourself.
+You are given a task and a document.
 
-Return a concise plain-text response.
+Complete the task using only the information contained in the document.
+
+Do not invent information that is not present in the document. If the document does not contain enough information to complete part of the task, say so.
+
+Task
+
+{task}
+
+Document
 
 <document>
 {document_text}
 </document>
+
+Response
+
+Return only the result of the requested task.
