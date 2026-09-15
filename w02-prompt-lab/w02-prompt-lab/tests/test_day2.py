@@ -47,10 +47,8 @@ def test_baseline_prompt_splits_instruction_from_document_tags() -> None:
     assert "<document>" not in system
     assert "</document>" not in system
     assert "{document_text}" not in system
-    assert system.startswith(
-        "You are reviewing an internal small-business KYC policy document."
-    )
-    assert "Return a concise plain-text response." in system
+    assert system.startswith("Baseline Prompt v0")
+    assert "Complete the task using only the information contained in the document." in system
     assert user_content == (
         "<document>\nCard Dispute Intake Procedure.\n</document>"
     )

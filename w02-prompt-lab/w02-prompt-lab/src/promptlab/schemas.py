@@ -40,6 +40,10 @@ class TriageOutput(StrictModel):
     customer_outcome: None = None
 
 
+class TriageOutputWithAnalysis(TriageOutput):
+    analysis: str
+
+
 class SummarizationOutput(StrictModel):
     document_status: DocumentStatus
     title: EvidenceField
@@ -162,4 +166,3 @@ def _describe_annotation(
     if origin is Union or origin is UnionType:
         return " or ".join(_describe_annotation(arg, nested) for arg in args)
     return str(annotation)
-

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 from pydantic import BaseModel, ConfigDict
 
@@ -93,6 +93,26 @@ def _placeholders(template: str) -> set[str]:
     return set(_PLACEHOLDER.findall(template))
 
 
+def _escape_untrusted(untrusted: str) -> str:
+    """Neutralize delimiter closers so untrusted text cannot leave its fence."""
+    escaped = untrusted.replace(CUSTOMER_MARKER_CLOSE, "&lt;/customer_message&gt;")
+    return escaped.replace(DOCUMENT_MARKER_CLOSE, "&lt;/document&gt;")
+
+
+def substitute(text: str, values: Mapping[str, str]) -> str:
+    """Replace known named placeholders without treating literal JSON braces as fields.
+
+    Missing names raise ``MissingPromptVariableError``. Extra names in ``values``
+    are ignored. Values are inserted as-is and are not scanned for further
+    placeholders.
+    """
+    needed = _placeholders(text)
+    missing = sorted(name for name in needed if name not in values)
+    if missing:
+        raise MissingPromptVariableError(missing)
+    return _PLACEHOLDER.sub(lambda match: values[match.group(1)], text)
+
+
 def render_user(
     template: PromptTemplate,
     variables: Mapping[str, str],
@@ -108,4 +128,6 @@ def render_user(
     - untrusted text is supplied through ``document_text``
     - literal JSON braces in prompt examples must remain literal
     """
-    raise NotImplementedError
+    supplied = dict(variables)
+    supplied["document_text"] = _escape_untrusted(untrusted)
+    return substitute(template.user_template, supplied)
