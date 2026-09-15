@@ -56,14 +56,23 @@ def parse_and_validate[T: BaseModel](result: CompletionResult, schema: type[T]) 
 
 def parse_json_text(text: str) -> object:
     stripped = text.strip()
+    candidates = [stripped]
     if stripped.startswith("```"):
-        stripped = stripped.split("\n", 1)[-1]
-        if stripped.endswith("```"):
-            stripped = stripped[: stripped.rfind("```")].strip()
-    try:
-        return json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Response was not valid JSON: {exc}") from exc
+        inner = stripped.split("\n", 1)[-1]
+        if inner.endswith("```"):
+            inner = inner[: inner.rfind("```")].strip()
+        candidates.append(inner)
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end > start:
+        candidates.append(stripped[start : end + 1])
+    last_exc: json.JSONDecodeError | None = None
+    for candidate in candidates:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_exc = exc
+    raise ValueError(f"Response was not valid JSON: {last_exc}") from last_exc
 
 
 def repair_user_content(
@@ -78,6 +87,9 @@ def repair_user_content(
         "The previous JSON failed validation.\n"
         f"Validation error:\n{error}\n\n"
         "Correct only what the validation error concerns. "
-        "Return only a JSON object that satisfies the schema.\n\n"
+        "If a key is forbidden, delete that key. "
+        "If a field is missing, add only that field. "
+        "Return only a JSON object that satisfies the schema. "
+        "Do not wrap the JSON in markdown or prose.\n\n"
         f"Previous output:\n{previous}"
     )
