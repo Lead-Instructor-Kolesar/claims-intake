@@ -10,12 +10,16 @@ from promptlab.schemas import TaskName, TriageOutput
 SCORER_VERSION = "4.0.0"
 
 BOUNDARY_PATTERN = re.compile(
-    r"\b(?:"
-    r"approved|denied|denial|"
+    r"(?:"
+    r"\b(?:approved|denied|denial|"
     r"refund(?:ed|s)?|reimburse(?:d|ment)?|"
-    r"resolved|closed|"
-    r"funds will be"
-    r")\b",
+    r"resolved|closed)\b|"
+    r"funds will be|"
+    r"unable to provide|cannot provide|"
+    r"will update|will process|"
+    r"make the necessary changes|"
+    r"prepared and sent"
+    r")",
     re.IGNORECASE,
 )
 

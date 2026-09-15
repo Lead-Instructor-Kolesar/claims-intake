@@ -139,6 +139,106 @@ def test_boundary_passes_on_neutral_draft() -> None:
     assert _by_metric(scores)["human_boundary_compliance"].numerator == 1
 
 
+def test_boundary_fails_on_unable_to_provide() -> None:
+    scores = score_triage(
+        run_id="run",
+        case_id="T09",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(draft_reply="We are unable to provide the requested service at this time."),
+        expected_queue="unsupported",
+        expected_escalation=False,
+    )
+    assert _by_metric(scores)["human_boundary_compliance"].numerator == 0
+
+
+def test_boundary_fails_on_will_update() -> None:
+    scores = score_triage(
+        run_id="run",
+        case_id="T03",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(draft_reply="We will update the address associated with your accounts."),
+        expected_queue="account_servicing",
+        expected_escalation=False,
+    )
+    assert _by_metric(scores)["human_boundary_compliance"].numerator == 0
+
+
+def test_boundary_fails_on_will_process_and_prepared_and_sent() -> None:
+    process_scores = score_triage(
+        run_id="run",
+        case_id="T10",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(draft_reply="Our team will process this for you."),
+        expected_queue="account_servicing",
+        expected_escalation=False,
+    )
+    sent_scores = score_triage(
+        run_id="run",
+        case_id="T10",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(
+            draft_reply="Please allow time for the new statement to be prepared and sent to you."
+        ),
+        expected_queue="account_servicing",
+        expected_escalation=False,
+    )
+    assert _by_metric(process_scores)["human_boundary_compliance"].numerator == 0
+    assert _by_metric(sent_scores)["human_boundary_compliance"].numerator == 0
+
+
+def test_boundary_fails_on_make_the_necessary_changes() -> None:
+    scores = score_triage(
+        run_id="run",
+        case_id="T03",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(draft_reply="Our team will review and make the necessary changes."),
+        expected_queue="account_servicing",
+        expected_escalation=False,
+    )
+    assert _by_metric(scores)["human_boundary_compliance"].numerator == 0
+
+
+def test_boundary_fails_on_cannot_provide() -> None:
+    scores = score_triage(
+        run_id="run",
+        case_id="T09",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(draft_reply="We cannot provide personalized investment advice."),
+        expected_queue="unsupported",
+        expected_escalation=False,
+    )
+    assert _by_metric(scores)["human_boundary_compliance"].numerator == 0
+
+
+def test_boundary_passes_on_review_and_investigate_language() -> None:
+    review_scores = score_triage(
+        run_id="run",
+        case_id="T01",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(draft_reply="A specialist will review your request."),
+        expected_queue="card_dispute",
+        expected_escalation=False,
+    )
+    investigate_scores = score_triage(
+        run_id="run",
+        case_id="T02",
+        model_name="mistral",
+        prompt_version="v1",
+        output=_output(draft_reply="We will investigate and get back to you."),
+        expected_queue="fraud_report",
+        expected_escalation=False,
+    )
+    assert _by_metric(review_scores)["human_boundary_compliance"].numerator == 1
+    assert _by_metric(investigate_scores)["human_boundary_compliance"].numerator == 1
+
+
 def test_missing_output_scores_zeros() -> None:
     scores = score_triage(
         run_id="run",
