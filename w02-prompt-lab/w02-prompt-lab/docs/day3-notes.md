@@ -7,7 +7,7 @@ Model: mistral:7b (logical name mistral), temperature 0.0, one run_id. Summariza
 - Summarization repair rate: 3/12 (25.0%)
 - Extraction repair rate: 0/12 (0.0%)
 - Example leakage count: 0 of 12 extraction outputs contained n-grams distinctive to the two few-shot example documents
-- Citation-existence failures: 0 evidence fields with status "present" whose citation does not match a real section heading in the case source
+- Citation-existence failures: 55 evidence fields with status "present" whose citation does not match a real section heading in the case source. All 55 are summarization fields: mistral cited bare section numbers ("1", "2", "3") instead of full headings ("1. Document Control", "3. Required Steps"). Extraction had 0 failures across 73 present fields because the extract.v2.md examples demonstrate full-heading citations.
 
 ## Most common validation error
 

@@ -233,6 +233,7 @@ def citation_exists(citation: str, headings: set[str]) -> bool:
 def citation_failures(
     outcomes: Sequence[CaseOutcome],
     cases: Sequence[dict[str, Any]],
+    schema: type[SummarizationOutput] | type[PolicyExtraction],
 ) -> list[str]:
     source_by_id = {str(case["id"]): str(case["source"]) for case in cases}
     failures: list[str] = []
@@ -240,9 +241,9 @@ def citation_failures(
         record = outcome.record
         if not record.succeeded or record.output is None:
             continue
-        extraction = PolicyExtraction.model_validate(record.output)
+        validated = schema.model_validate(record.output)
         headings = _section_headings(source_by_id[record.case_id])
-        for field_name, field in extraction.evidence_fields().items():
+        for field_name, field in validated.evidence_fields().items():
             if field.status != "present":
                 continue
             if field.citation is None or not citation_exists(field.citation, headings):
@@ -387,7 +388,10 @@ def main() -> None:
     corpus.append(EXTRACT_V1_PROMPT_PATH.read_text(encoding="utf-8"))
     grams = distinctive_example_ngrams(corpus)
     leakage = leakage_case_ids(extraction, grams)
-    failures = citation_failures(extraction, extraction_cases)
+    failures = [
+        *citation_failures(summarization, summarization_cases, SummarizationOutput),
+        *citation_failures(extraction, extraction_cases, PolicyExtraction),
+    ]
 
     notes = render_notes(settings, model_id, summarization, extraction, leakage, failures)
     NOTES_PATH.write_text(notes, encoding="utf-8")
