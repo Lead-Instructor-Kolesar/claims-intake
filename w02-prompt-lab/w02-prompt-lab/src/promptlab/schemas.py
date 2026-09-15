@@ -39,6 +39,10 @@ class TriageOutput(StrictModel):
     customer_outcome: None = None
 
 
+class TriageOutputWithAnalysis(TriageOutput):
+    analysis: str
+
+
 class SummarizationOutput(StrictModel):
     document_status: DocumentStatus
     title: EvidenceField
