@@ -156,7 +156,9 @@ def _repair_request(
         "Validation error:\n"
         f"{error_text}\n\n"
         "Do not return the schema description or any schema text; every field "
-        "must hold concrete values, not type declarations. "
+        "must hold concrete values, not type declarations. The top level of the "
+        "JSON object must contain exactly the expected field names, with no "
+        "wrapper key. "
         "Correct only what the validation error concerns and return the full corrected "
         "JSON object only, with no Markdown fencing and no commentary."
     )

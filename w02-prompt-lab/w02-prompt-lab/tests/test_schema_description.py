@@ -78,3 +78,10 @@ def test_description_forbids_returning_the_description_itself() -> None:
 
     assert "Do not return this description" in description
     assert "concrete values" in description
+
+
+def test_description_does_not_model_a_wrapper_key() -> None:
+    description = schema_description(SummarizationOutput)
+
+    assert not description.startswith(f"{SummarizationOutput.__name__}:")
+    assert "Do not wrap the object under another key" in description

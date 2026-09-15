@@ -97,7 +97,7 @@ def schema_description(model: type[BaseModel]) -> str:
     JSON, so the model cannot echo it back as if it were the answer object.
     """
     nested: list[type[BaseModel]] = []
-    lines = [f"{model.__name__}: return ONE JSON object with exactly these fields:"]
+    lines = ["Return ONE JSON object with exactly these top-level fields:"]
     for name, field_info in model.model_fields.items():
         lines.append(_field_line(name, field_info, nested))
 
@@ -106,15 +106,18 @@ def schema_description(model: type[BaseModel]) -> str:
         nested_model = nested[index]
         index += 1
         lines.append("")
-        lines.append(f"{nested_model.__name__}: a JSON object with exactly these fields:")
+        lines.append(
+            f"{nested_model.__name__} is itself a JSON object with exactly these fields:"
+        )
         for name, field_info in nested_model.model_fields.items():
             lines.append(_field_line(name, field_info, nested))
 
     lines.append("")
     lines.append(
-        "Return exactly one JSON object of this type with concrete values. "
-        "Do not return this description, do not return schema text, and do not "
-        "wrap the object in Markdown."
+        "Return exactly one JSON object whose top-level keys are exactly the field "
+        "names above, holding concrete values. Do not wrap the object under another "
+        "key such as a schema name. Do not return this description, do not return "
+        "schema text, and do not use Markdown."
     )
     return "\n".join(lines)
 
