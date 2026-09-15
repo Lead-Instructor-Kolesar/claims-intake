@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
-from typing import Literal
+from types import UnionType
+from typing import Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.fields import FieldInfo
 
 TaskName = Literal["triage", "summarization", "extraction"]
 FieldStatus = Literal["present", "absent", "ambiguous"]
@@ -88,10 +90,73 @@ OUTPUT_SCHEMAS: dict[TaskName, type[StrictModel]] = {
 
 
 def schema_description(model: type[BaseModel]) -> str:
-    """Return a deterministic JSON Schema description of the supplied model.
+    """Return a compact description of the supplied model for embedding in prompts.
 
-    Prompts embed this text so the required output shape always mirrors the
-    schema defined in code instead of a hand-maintained copy.
+    The description is generated from the model definition so prompts never
+    carry a hand-maintained copy of the output shape. It is deliberately not
+    JSON, so the model cannot echo it back as if it were the answer object.
     """
-    return json.dumps(model.model_json_schema(), indent=2, sort_keys=True)
+    nested: list[type[BaseModel]] = []
+    lines = [f"{model.__name__}: return ONE JSON object with exactly these fields:"]
+    for name, field_info in model.model_fields.items():
+        lines.append(_field_line(name, field_info, nested))
+
+    index = 0
+    while index < len(nested):
+        nested_model = nested[index]
+        index += 1
+        lines.append("")
+        lines.append(f"{nested_model.__name__}: a JSON object with exactly these fields:")
+        for name, field_info in nested_model.model_fields.items():
+            lines.append(_field_line(name, field_info, nested))
+
+    lines.append("")
+    lines.append(
+        "Return exactly one JSON object of this type with concrete values. "
+        "Do not return this description, do not return schema text, and do not "
+        "wrap the object in Markdown."
+    )
+    return "\n".join(lines)
+
+
+def _field_line(name: str, field_info: FieldInfo, nested: list[type[BaseModel]]) -> str:
+    annotation = _describe_annotation(field_info.annotation, nested)
+    required = "" if field_info.is_required() else " (optional)"
+    return f"  {name}: {annotation}{required}"
+
+
+_PRIMITIVE_NAMES: dict[object, str] = {
+    str: "string",
+    int: "integer",
+    float: "number",
+    bool: "boolean",
+}
+
+
+def _describe_annotation(
+    annotation: object,
+    nested: list[type[BaseModel]],
+) -> str:
+    if annotation is None or annotation is type(None):
+        return "null"
+    primitive = _PRIMITIVE_NAMES.get(annotation)
+    if primitive is not None:
+        return primitive
+    origin = get_origin(annotation)
+    if origin is None:
+        if isinstance(annotation, type):
+            if issubclass(annotation, BaseModel):
+                if annotation not in nested:
+                    nested.append(annotation)
+                return annotation.__name__
+            return annotation.__name__
+        return str(annotation)
+    args = get_args(annotation)
+    if origin is Literal:
+        return "one of " + ", ".join(json.dumps(arg) for arg in args)
+    if origin is list:
+        return f"list of {_describe_annotation(args[0], nested)}"
+    if origin is Union or origin is UnionType:
+        return " or ".join(_describe_annotation(arg, nested) for arg in args)
+    return str(annotation)
 

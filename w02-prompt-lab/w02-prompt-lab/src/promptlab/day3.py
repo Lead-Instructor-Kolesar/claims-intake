@@ -254,7 +254,7 @@ def _error_signature(first_error: str) -> str:
     match = re.search(r"\[type=([a-z_]+)", first_error)
     if match is not None:
         return match.group(1)
-    return first_error.splitlines()[0]
+    return " ".join(first_error.split())[:200]
 
 
 def _repair_rate(outcomes: Sequence[CaseOutcome]) -> tuple[int, int, str]:
