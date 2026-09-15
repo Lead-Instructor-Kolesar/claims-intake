@@ -34,7 +34,7 @@ class RepairingStubAdapter:
 
 def _request() -> CompletionRequest:
     return CompletionRequest(
-        task="summarize",
+        task="summarization",
         case_id="S00",
         prompt_id="summarize",
         prompt_version="v1",
