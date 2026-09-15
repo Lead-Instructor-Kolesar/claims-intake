@@ -10,7 +10,22 @@ Day 2 assignment. Implement these against `docs/api-contract.md` sections 2 and 
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+from typing import Literal, NewType
+
+from pydantic import BaseModel, ConfigDict, Field
+
+ClaimType = Literal["collision", "theft", "glass", "liability", "weather"]
+
+RuleId = NewType("RuleId", str)
+ErrorCode = NewType("ErrorCode", str)
+
+@dataclass(frozen=True)
+class RuleFailure:
+    rule: RuleId
+    code: ErrorCode
 
 
 class NotificationRequest(BaseModel):
@@ -25,9 +40,19 @@ class NotificationRequest(BaseModel):
     to read. Every other field, and every constraint on every field including this
     one, is Day 2's work.
     """
+    model_config = ConfigDict(extra="forbid")
 
-    policy_number: str
+    policy_number: str = Field(min_length=1)
+    loss_date: date
+    claim_type: ClaimType
+    estimated_amount: Decimal = Field(gt=0, decimal_places=2)
+    description: str | None = None
 
+
+@dataclass(frozen=True)
+class ClaimRecord:
+    claim_reference: str
+    notification: NotificationRequest
 
 class Policy(BaseModel):
     """A policy as this service works with it.
@@ -37,6 +62,16 @@ class Policy(BaseModel):
 
     Day 2 assignment: declare the fields.
     """
+    model_config = ConfigDict(extra="forbid")
+
+    policy_number: str = Field(min_length=1)
+    product: str = Field(min_length=1)
+    effective_date: date
+    expiry_date: date
+    cancellation_date: date | None
+    limit: Decimal = Field(gt=0, decimal_places=2)
+    permitted_claim_types: tuple[ClaimType, ...]
+
 
 
 class RecordedNotification(BaseModel):
@@ -47,3 +82,7 @@ class RecordedNotification(BaseModel):
 
     Day 2 assignment: declare the fields.
     """
+    model_config = ConfigDict(extra="forbid")
+
+    claim_reference: str = Field(pattern=r"^CLM-\d{4}-\d{6}$")
+    status: str = Field(min_length=1)
