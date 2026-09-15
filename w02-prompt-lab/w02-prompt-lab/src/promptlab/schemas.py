@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal
+import json
+import types
+from typing import Literal, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -85,3 +87,56 @@ OUTPUT_SCHEMAS: dict[TaskName, type[StrictModel]] = {
     "extraction": PolicyExtraction,
 }
 
+
+def _is_union(annotation: object) -> bool:
+    origin = get_origin(annotation)
+    return origin is Union or origin is types.UnionType
+
+
+def _is_model(annotation: object) -> bool:
+    return isinstance(annotation, type) and issubclass(annotation, BaseModel)
+
+
+def _describe_type(annotation: object) -> object:
+    if annotation is type(None):
+        return "null"
+    if _is_model(annotation):
+        return _instance_guide(cast(type[BaseModel], annotation))
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if origin is Literal:
+        return " | ".join(str(arg) for arg in args)
+    if _is_union(annotation):
+        rendered: list[str] = []
+        for arg in args:
+            described = _describe_type(arg)
+            if isinstance(described, list):
+                item = described[0] if described else "any"
+                rendered.append(f"list[{item}]")
+            elif isinstance(described, dict):
+                rendered.append("object")
+            else:
+                rendered.append(str(described))
+        return " | ".join(rendered)
+    if origin is list:
+        item = _describe_type(args[0]) if args else "any"
+        return f"list[{item}]"
+    if annotation is str:
+        return "string"
+    if annotation is bool:
+        return "boolean"
+    if annotation is int:
+        return "integer"
+    if annotation is float:
+        return "number"
+    return str(annotation).replace("typing.", "")
+
+
+def _instance_guide(model: type[BaseModel]) -> dict[str, object]:
+    return {
+        name: _describe_type(field.annotation) for name, field in model.model_fields.items()
+    }
+
+
+def schema_description(model: type[BaseModel]) -> str:
+    return json.dumps(_instance_guide(model), indent=2)
