@@ -72,6 +72,8 @@ def score_triage_output(
             task=output_record.task,
             case_id=output_record.case_id,
             model_name=output_record.model_name,
+            model_id=output_record.model_id,
+            prompt_id=output_record.prompt_id,
             prompt_version=output_record.prompt_version,
             scorer_version=SCORER_VERSION,
             metric=metric,

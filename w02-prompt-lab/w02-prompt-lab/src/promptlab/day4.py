@@ -113,6 +113,7 @@ def run_prompt_version(
             case_id=case_id,
             model_name=model_name,
             model_id=model_id,
+            prompt_id="triage",
             prompt_version=prompt_version,
             succeeded=output is not None,
             repairs=max(adapter.complete_calls - 1, 0),
