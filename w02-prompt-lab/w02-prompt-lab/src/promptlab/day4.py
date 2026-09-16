@@ -13,10 +13,11 @@ from pydantic import BaseModel, ValidationError
 from promptlab.adapters.base import CompletionRequest, CompletionResult
 from promptlab.adapters.ollama import OllamaAdapter
 from promptlab.config import PROJECT_ROOT, Settings
+from promptlab.corpus import GoldLabel, load_gold
 from promptlab.prompts import load, render_user
 from promptlab.records import OutputRecord, ScoreRecord, append_record
 from promptlab.schemas import TriageOutput, TriageOutputWithAnalysis, schema_description
-from promptlab.scoring import load_gold, score_output
+from promptlab.scoring import score_output
 from promptlab.structured import complete_structured
 from promptlab.usage import CallRecord
 
@@ -179,7 +180,7 @@ def run_version(
     *,
     adapter: OllamaAdapter,
     cases: list[dict[str, Any]],
-    gold: dict[str, dict[str, Any]],
+    gold: dict[str, GoldLabel],
     prompt_version: str,
     schema: type[BaseModel],
     run_id: str,
@@ -240,11 +241,13 @@ def run_version(
         scores.extend(
             score_output(
                 run_id=run_id,
+                task="triage",
                 case_id=case_id,
                 model_name=model_name,
                 prompt_version=prompt_version,
                 output=output,
                 gold=gold[case_id],
+                source=str(case["source"]),
             )
         )
         print(
@@ -263,7 +266,7 @@ def main() -> None:
     model = settings.models["mistral"]
     adapter = OllamaAdapter(model_id=model.model_id, base_url=settings.ollama_base_url)
     cases = load_cases(PROJECT_ROOT / "cases" / "triage.jsonl")
-    gold = load_gold()
+    gold = load_gold("triage")
 
     all_outputs: list[OutputRecord] = []
     all_scores: list[ScoreRecord] = []
