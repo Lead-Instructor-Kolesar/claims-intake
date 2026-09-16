@@ -1,243 +1,344 @@
-"""Write comparison and model-decision reports from recorded evidence."""
+"""Reporting for the Week 2 model-comparison lab.
+
+The reporting layer consumes the existing UsageRecord, OutputRecord, and
+ScoreRecord objects.  It does not rescore model output and it does not call an
+LLM.
+"""
 
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Sequence
 from pathlib import Path
 from statistics import median
+from typing import Any
 
 from promptlab.records import OutputRecord, ScoreRecord, UsageRecord
 
-TRANSFER_MODELS = frozenset({"qwen"})
+_ConfigKey = tuple[str, str, str]  # task, model_name, prompt_version
 
 
-def _ratio(scores: Iterable[ScoreRecord], metric: str) -> str:
-    rows = [score for score in scores if score.metric == metric]
-    if not rows:
-        return "n/a"
-    return f"{sum(score.numerator for score in rows)}/{sum(score.denominator for score in rows)}"
-
-
-def _prompt_label(model_name: str, prompt_version: str, prompt_id: str) -> str:
-    base = f"{prompt_id}.{prompt_version}"
-    if model_name in TRANSFER_MODELS:
-        return f"{base} transfer"
-    return base
-
-
-def _task_prompt_id(task: str) -> str:
-    return {"summarization": "summarize", "extraction": "extract", "triage": "triage"}[task]
-
-
-def _quality_cell(task: str, rows: list[ScoreRecord]) -> str:
-    if task == "triage":
-        return (
-            f"queue {_ratio(rows, 'queue')}; "
-            f"escalation {_ratio(rows, 'escalation')}; "
-            f"missed {_ratio(rows, 'missed_escalation')}; "
-            f"unnecessary {_ratio(rows, 'unnecessary_escalation')}; "
-            f"boundary {_ratio(rows, 'human_boundary_compliance')}; "
-            f"PII {_ratio(rows, 'pii_leakage')}"
-        )
-    if task == "extraction":
-        return (
-            f"required {_ratio(rows, 'required_evidence_recall')}; "
-            f"citation {_ratio(rows, 'citation_correctness')}; "
-            f"unsupported-avoided {_ratio(rows, 'unsupported_field_avoidance')}"
-        )
+def _key(record: Any) -> _ConfigKey:
     return (
-        f"required {_ratio(rows, 'required_evidence_recall')}; "
-        f"citation {_ratio(rows, 'citation_correctness')}"
+        str(record.task),
+        str(record.model_name),
+        str(record.prompt_version),
     )
 
 
-def write_reports(
+def _for_run(records: Sequence[Any], run_id: str) -> list[Any]:
+    return [record for record in records if str(record.run_id) == run_id]
+
+
+def _fmt_number(value: float) -> str:
+    if value.is_integer():
+        return str(int(value))
+    return f"{value:.1f}"
+
+
+def _aggregate_scores(
+    records: Sequence[ScoreRecord],
+) -> dict[str, tuple[int, int, bool | None]]:
+    """Aggregate compatible score counts without averaging percentages."""
+
+    grouped: dict[str, list[ScoreRecord]] = defaultdict(list)
+    for record in records:
+        grouped[str(record.metric)].append(record)
+
+    result: dict[str, tuple[int, int, bool | None]] = {}
+
+    for metric, rows in sorted(grouped.items()):
+        numerator = sum(int(row.numerator) for row in rows)
+        denominator = sum(int(row.denominator) for row in rows)
+
+        directions = {
+            bool(value)
+            for value in (getattr(row, "lower_is_better", None) for row in rows)
+            if value is not None
+        }
+        lower_is_better = next(iter(directions)) if len(directions) == 1 else None
+
+        result[metric] = (numerator, denominator, lower_is_better)
+
+    return result
+
+
+def _metric_text(records: Sequence[ScoreRecord]) -> str:
+    metrics = _aggregate_scores(records)
+    if not metrics:
+        return "—"
+
+    rendered: list[str] = []
+    for metric, (numerator, denominator, lower_is_better) in metrics.items():
+        suffix = " ↓" if lower_is_better else ""
+        rendered.append(f"{metric}: {numerator}/{denominator}{suffix}")
+
+    return "<br>".join(rendered)
+
+
+def _usage_summary(
+    records: Sequence[UsageRecord],
+) -> tuple[str, str, str, str, str, str]:
+    """Return token, latency, observation, and retry summaries."""
+
+    if not records:
+        return "—", "—", "—", "—", "0", "0"
+
+    prompt_tokens = sum(int(getattr(row, "prompt_tokens", 0) or 0) for row in records)
+    completion_tokens = sum(
+        int(getattr(row, "completion_tokens", 0) or 0) for row in records
+    )
+
+    latencies = [
+        float(row.latency_ms)
+        for row in records
+        if getattr(row, "latency_ms", None) is not None
+    ]
+
+    if latencies:
+        median_latency = f"{_fmt_number(float(median(latencies)))} ms"
+        max_latency = f"{_fmt_number(float(max(latencies)))} ms"
+    else:
+        median_latency = "—"
+        max_latency = "—"
+
+    # A semantic repair is a separate model request and should not also be
+    # reported as a transport retry merely because it has an attempt number.
+    retry_attempts = sum(
+        1
+        for row in records
+        if int(getattr(row, "attempt", 1) or 1) > 1
+        and str(getattr(row, "kind", "")).lower() != "repair"
+    )
+
+    return (
+        str(prompt_tokens),
+        str(completion_tokens),
+        median_latency,
+        max_latency,
+        str(len(latencies)),
+        str(retry_attempts),
+    )
+
+
+def _output_summary(
+    records: Sequence[OutputRecord],
+) -> tuple[str, str, str]:
+    if not records:
+        return "0/0", "0/0", "0"
+
+    total = len(records)
+    succeeded = sum(1 for row in records if bool(row.succeeded))
+    repairs_needed = sum(
+        1 for row in records if int(getattr(row, "repairs", 0) or 0) > 0
+    )
+    failures = total - succeeded
+
+    return (
+        f"{succeeded}/{total}",
+        f"{repairs_needed}/{total}",
+        str(failures),
+    )
+
+
+def _all_config_keys(
+    usage: Sequence[UsageRecord],
+    outputs: Sequence[OutputRecord],
+    scores: Sequence[ScoreRecord],
+) -> list[_ConfigKey]:
+    keys = {_key(row) for row in usage}
+    keys.update(_key(row) for row in outputs)
+    keys.update(_key(row) for row in scores)
+    return sorted(keys)
+
+
+def _write_report(
     *,
     run_id: str,
-    models: list[str],
-    usage: list[UsageRecord],
-    outputs: list[OutputRecord],
-    scores: list[ScoreRecord],
+    usage: Sequence[UsageRecord],
+    outputs: Sequence[OutputRecord],
+    scores: Sequence[ScoreRecord],
     report_path: Path,
-    decision_path: Path,
 ) -> None:
-    grouped_scores: dict[tuple[str, str, str], list[ScoreRecord]] = defaultdict(list)
-    for score in scores:
-        grouped_scores[(score.task, score.model_name, score.prompt_version)].append(score)
-
-    grouped_usage: dict[tuple[str, str, str], list[UsageRecord]] = defaultdict(list)
-    for record in usage:
-        grouped_usage[(record.task, record.model_name, record.prompt_version)].append(record)
-
-    grouped_outputs: dict[tuple[str, str, str], list[OutputRecord]] = defaultdict(list)
-    for output_record in outputs:
-        grouped_outputs[
-            (output_record.task, output_record.model_name, output_record.prompt_version)
-        ].append(output_record)
-
-    lines = [
-        "# Local Model Comparison",
+    lines: list[str] = [
+        "# Model Comparison",
         "",
-        f"Run `{run_id}` compared configured Ollama models. Local provider/API cost is `$0.00`.",
-        "Qwen rows are prompt-transfer: the same Day 3/4 prompt versions, not Qwen-tuned variants.",
+        f"Run ID: `{run_id}`",
+        "",
+        "Counts are reported with their denominators. "
+        "Latency uses median and maximum rather than mean.",
         "",
     ]
-    tasks = ("summarization", "extraction", "triage")
-    for task in tasks:
-        prompt_id = _task_prompt_id(task)
+
+    keys = _all_config_keys(usage, outputs, scores)
+    tasks = sorted({task for task, _model, _prompt in keys})
+
+    if not tasks:
         lines.extend(
             [
-                f"## {task}",
+                "No records were supplied for this run.",
                 "",
-                "| Model | Prompt | Quality | Input tokens/case | "
-                "Output tokens/case | Median latency | Max latency | "
-                "Repairs | Observations |",
-                "|---|---|---|---|---|---|---|---|---|",
             ]
         )
-        for model_name in models:
-            keys = [
-                key
-                for key in grouped_outputs
-                if key[0] == task and key[1] == model_name
+
+    for task in tasks:
+        lines.extend(
+            [
+                f"## {task.title()}",
+                "",
+                "| Model | Prompt | Valid outputs | Metrics | Input tokens | "
+                "Output tokens | Median latency | Max latency | n | "
+                "Repairs | Retries | Final failures |",
+                "| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | "
+                "---: | ---: | ---: |",
             ]
-            if not keys:
-                continue
-            _, _, prompt_version = keys[0]
-            key = (task, model_name, prompt_version)
-            score_rows = grouped_scores.get(key, [])
-            usage_rows = grouped_usage.get(key, [])
-            output_rows = grouped_outputs.get(key, [])
-            n = max(len(output_rows), 1)
-            input_tokens = sum(row.prompt_tokens for row in usage_rows)
-            output_tokens = sum(row.completion_tokens for row in usage_rows)
-            latencies = [row.latency_ms for row in usage_rows]
-            median_latency = float(median(latencies)) if latencies else 0.0
-            max_latency = max(latencies) if latencies else 0.0
-            repaired = sum(1 for row in output_rows if row.repairs > 0)
+        )
+
+        task_keys = [key for key in keys if key[0] == task]
+
+        for key in task_keys:
+            _task, model_name, prompt_version = key
+
+            u = [row for row in usage if _key(row) == key]
+            o = [row for row in outputs if _key(row) == key]
+            s = [row for row in scores if _key(row) == key]
+
+            (
+                input_tokens,
+                output_tokens,
+                median_latency,
+                max_latency,
+                n,
+                retries,
+            ) = _usage_summary(u)
+
+            valid_outputs, repairs, failures = _output_summary(o)
+            metric_text = _metric_text(s)
+
             lines.append(
                 "| "
-                + " | ".join(
-                    [
-                        model_name,
-                        _prompt_label(model_name, prompt_version, prompt_id),
-                        _quality_cell(task, score_rows),
-                        f"{input_tokens / n:.1f}",
-                        f"{output_tokens / n:.1f}",
-                        f"{median_latency:.0f} ms",
-                        f"{max_latency:.0f} ms",
-                        f"{repaired}/{len(output_rows) or 1}",
-                        str(len(usage_rows)),
-                    ]
-                )
-                + " |"
+                f"{model_name} | {prompt_version} | {valid_outputs} | "
+                f"{metric_text} | {input_tokens} | {output_tokens} | "
+                f"{median_latency} | {max_latency} | {n} | {repairs} | "
+                f"{retries} | {failures} |"
             )
+
         lines.append("")
 
     lines.extend(
         [
             "## Limits",
             "",
-            "- There are only 12 cases per task.",
-            "  Results are directional, not production-scale estimates.",
-            "- Qwen rows are labeled prompt-transfer.",
-            "  No Qwen-adapted prompt version was introduced.",
-            "- Untested combinations: any prompt besides `summarize.v1`,",
-            "  `extract.v2`, and `triage.v1`; temperatures other than 0.0;",
-            "  models other than the two configured Ollama identities.",
-            "- No production-volume reliability claim is being made.",
-            "- Local Ollama latency depends on lab hardware.",
-            "- Do not treat an 11/12 vs 10/12 gap as a universal model ranking.",
-            "",
-            "## Recommendation",
+            "- The Week 2 comparison uses a small fixed case set; report counts rather "
+            "than treating one-case differences as precise production estimates.",
+            "- A row measures the model together with the prompt version shown in that row.",
+            "- A transferred prompt is evidence about that transferred configuration, not "
+            "proof of the model's best achievable performance after adaptation.",
+            "- Local Ollama provider/API charge is `$0.00`; token usage and latency still "
+            "represent real operational work.",
             "",
         ]
     )
-    lines.extend(_recommendations(models, grouped_scores))
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    decision_lines = [
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_decision_scaffold(
+    *,
+    run_id: str,
+    models: Sequence[str],
+    usage: Sequence[UsageRecord],
+    outputs: Sequence[OutputRecord],
+    scores: Sequence[ScoreRecord],
+    decision_path: Path,
+) -> None:
+    """Write an evidence scaffold, not an invented model recommendation."""
+
+    keys = _all_config_keys(usage, outputs, scores)
+
+    lines: list[str] = [
         "# Model Decision Record",
         "",
-        "## evidence",
+        f"Run ID: `{run_id}`",
         "",
-        f"- run_id: `{run_id}`",
-        "- provider: ollama; cost_usd: $0.00",
-        "- prompts: summarization=`summarize.v1`, extraction=`extract.v2`, triage=`triage.v1`",
-        "- Qwen used those exact versions as a prompt-transfer test",
-        f"- models compared: {', '.join(models)}",
+        "Use this file to record the task-level decision after reviewing the measured "
+        "comparison. Do not select one universal model solely because it leads on a "
+        "different task.",
         "",
-        "## decision",
+        "## Evaluated models",
         "",
     ]
-    decision_lines.extend(_decision_bullets(models))
-    decision_lines.extend(
+
+    evaluated_models = sorted(
+        {model for _task, model, _prompt in keys} | {str(model) for model in models}
+    )
+    if evaluated_models:
+        for model in evaluated_models:
+            lines.append(f"- {model}")
+    else:
+        lines.append("- None")
+
+    lines.extend(["", "## Evaluated configurations", ""])
+
+    if keys:
+        for task, model, prompt in keys:
+            lines.append(f"- `{task}` — {model} — `{prompt}`")
+    else:
+        lines.append("- No configurations supplied.")
+
+    lines.extend(
         [
             "",
-            "## rejected alternatives",
+            "## Task decisions",
             "",
-            "- Inventing a cloud token price for local Ollama models",
-            "- Asking the model which policy version is current",
-            "  instead of `select_current_version`",
-            "- Switching triage to `triage.v2`; Day 4 showed the same 10/12",
-            "  queue with extra output tokens",
-            "- Treating Qwen transfer scores as proof that Qwen is worse at extraction in general",
+            "For each task, complete:",
             "",
-            "## review triggers",
-            "",
-            "- A new gold case set larger than n=12",
-            "- A Qwen-adapted prompt version with its own recorded run",
-            "- Human-boundary failure on either model",
-            "- Material change to schema, adapter, or temperature",
+            "- selected model",
+            "- prompt version",
+            "- measured reason",
+            "- rejected alternative(s)",
+            "- condition that would reopen the decision",
             "",
         ]
     )
+
     decision_path.parent.mkdir(parents=True, exist_ok=True)
-    decision_path.write_text("\n".join(decision_lines), encoding="utf-8")
+    decision_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _queue_ratio(rows: list[ScoreRecord]) -> tuple[int, int]:
-    selected = [row for row in rows if row.metric in {"queue", "required_evidence_recall"}]
-    if not selected:
-        selected = [row for row in rows if row.metric == "queue_accuracy"]
-    return sum(row.numerator for row in selected), sum(row.denominator for row in selected)
+def write_reports(
+    *,
+    run_id: str,
+    models: Sequence[str],
+    usage: Sequence[UsageRecord],
+    outputs: Sequence[OutputRecord],
+    scores: Sequence[ScoreRecord],
+    report_path: Path,
+    decision_path: Path,
+) -> None:
+    """Generate the comparison report and decision scaffold for one run.
 
+    Only records whose ``run_id`` matches the requested run are included.
+    """
 
-def _recommendations(
-    models: list[str],
-    grouped_scores: dict[tuple[str, str, str], list[ScoreRecord]],
-) -> list[str]:
-    lines: list[str] = []
-    for task in ("summarization", "extraction", "triage"):
-        prompt_id = _task_prompt_id(task)
-        best_model = models[0] if models else "mistral"
-        best_score = (-1, 0)
-        prompt_version = "v1" if task != "extraction" else "v2"
-        for model_name in models:
-            keys = [key for key in grouped_scores if key[0] == task and key[1] == model_name]
-            if not keys:
-                continue
-            prompt_version = keys[0][2]
-            num, den = _queue_ratio(grouped_scores[keys[0]])
-            if den and num / den > (best_score[0] / best_score[1] if best_score[1] else -1):
-                best_score = (num, den)
-                best_model = model_name
-        lines.append(
-            f"- **{task}**: model `{best_model}`, prompt `{prompt_id}.{prompt_version}`"
-            + (" transfer" if best_model in TRANSFER_MODELS else "")
-            + f". Headline quality {best_score[0]}/{best_score[1] or 1} on this 12-case set. "
-            "Reopen if a larger gold set or a model-specific prompt version is recorded."
-        )
-    return lines
+    run_usage = _for_run(usage, run_id)
+    run_outputs = _for_run(outputs, run_id)
+    run_scores = _for_run(scores, run_id)
 
+    _write_report(
+        run_id=run_id,
+        usage=run_usage,
+        outputs=run_outputs,
+        scores=run_scores,
+        report_path=Path(report_path),
+    )
 
-def _decision_bullets(models: list[str]) -> list[str]:
-    return [
-        "- Keep both configured Ollama models available;",
-        "  recommend per task from the comparison tables.",
-        "- Use `summarize.v1`, `extract.v2`, and `triage.v1`",
-        "  until a later recorded version beats them on gold.",
-        f"- Models in this record: {', '.join(models)}.",
-    ]
+    _write_decision_scaffold(
+        run_id=run_id,
+        models=models,
+        usage=run_usage,
+        outputs=run_outputs,
+        scores=run_scores,
+        decision_path=Path(decision_path),
+    )

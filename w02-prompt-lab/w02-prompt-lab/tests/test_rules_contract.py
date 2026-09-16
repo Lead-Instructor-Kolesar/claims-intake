@@ -1,42 +1,54 @@
-"""Deterministic document-currency tests. No model is consulted."""
-
 from datetime import date
 
 from promptlab.rules import VersionCandidate, select_current_version
 
 
-def test_selects_latest_effective_on_or_before_as_of() -> None:
-    candidates = [
-        VersionCandidate("E01", "1.0", date(2024, 1, 1)),
-        VersionCandidate("E02", "2.0", date(2025, 4, 1)),
-        VersionCandidate("E03", "3.0", date(2026, 1, 1)),
-    ]
+def candidate(case_id: str, version: str, effective: str) -> VersionCandidate:
+    return VersionCandidate(
+        case_id=case_id,
+        version=version,
+        effective_date=date.fromisoformat(effective),
+    )
 
-    selected = select_current_version(candidates, date(2025, 6, 1))
 
+def test_effective_date_equal_to_review_date_is_current() -> None:
+    selected = select_current_version(
+        [
+            candidate("old", "1.0", "2025-01-01"),
+            candidate("equal", "2.0", "2025-06-01"),
+        ],
+        date(2025, 6, 1),
+    )
     assert selected is not None
-    assert selected.case_id == "E02"
+    assert selected.case_id == "equal"
 
 
-def test_equal_effective_date_has_no_winner() -> None:
-    candidates = [
-        VersionCandidate("A", "1.0", date(2025, 6, 1)),
-        VersionCandidate("B", "1.1", date(2025, 6, 1)),
-    ]
-
-    assert select_current_version(candidates, date(2025, 6, 1)) is None
-
-
-def test_effective_on_as_of_applies() -> None:
-    candidates = [VersionCandidate("S02", "2.0", date(2025, 6, 1))]
-
-    selected = select_current_version(candidates, date(2025, 6, 1))
-
+def test_future_version_is_not_selected() -> None:
+    selected = select_current_version(
+        [
+            candidate("current", "1.0", "2025-01-01"),
+            candidate("future", "2.0", "2026-01-01"),
+        ],
+        date(2025, 6, 1),
+    )
     assert selected is not None
-    assert selected.case_id == "S02"
+    assert selected.case_id == "current"
 
 
 def test_no_eligible_version_returns_none() -> None:
-    candidates = [VersionCandidate("F", "9.0", date(2026, 1, 1))]
+    selected = select_current_version(
+        [candidate("future", "2.0", "2026-01-01")],
+        date(2025, 6, 1),
+    )
+    assert selected is None
 
-    assert select_current_version(candidates, date(2025, 6, 1)) is None
+
+def test_equal_effective_dates_are_ambiguous() -> None:
+    selected = select_current_version(
+        [
+            candidate("a", "1.0", "2025-01-01"),
+            candidate("b", "2.0", "2025-01-01"),
+        ],
+        date(2025, 6, 1),
+    )
+    assert selected is None
