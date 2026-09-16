@@ -8,7 +8,19 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from promptlab.schemas import TaskName
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Day 5 comparison prompts. Developed against Mistral on Days 1-4.
+TASK_PROMPTS: dict[TaskName, tuple[str, str]] = {
+    "summarization": ("summarize", "v1"),
+    "extraction": ("extract", "v2"),
+    "triage": ("triage", "v1"),
+}
+PROMPT_HOME_MODEL = "mistral"
+# Shared Day 5 ceiling. Smoke showed Qwen extraction emitting >1024 output tokens.
+MAX_OUTPUT_TOKENS = 2048
 
 PII_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
