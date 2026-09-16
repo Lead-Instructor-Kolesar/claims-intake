@@ -39,6 +39,10 @@ class TriageOutput(StrictModel):
     customer_outcome: None = None
 
 
+class TriageOutputWithAnalysis(TriageOutput):
+    analysis: str
+
+
 class SummarizationOutput(StrictModel):
     document_status: DocumentStatus
     title: EvidenceField
@@ -99,12 +103,16 @@ def _is_model(annotation: object) -> bool:
 
 def _describe_type(annotation: object) -> object:
     if annotation is type(None):
-        return "null"
+        return None
     if _is_model(annotation):
         return _instance_guide(cast(type[BaseModel], annotation))
     origin = get_origin(annotation)
     args = get_args(annotation)
     if origin is Literal:
+        if len(args) == 1 and isinstance(args[0], bool):
+            return args[0]
+        if len(args) == 1 and args[0] is None:
+            return None
         return " | ".join(str(arg) for arg in args)
     if _is_union(annotation):
         rendered: list[str] = []
