@@ -247,6 +247,10 @@ def test_failure_scores_keep_denominators() -> None:
     by_metric = {score.metric: score for score in scores}
     assert by_metric["required_evidence_recall"].numerator == 0
     assert by_metric["required_evidence_recall"].denominator == 4
+    # A truncated/failed case missed every recoverable field.
+    assert by_metric["missing_required_evidence"].numerator == 4
+    assert by_metric["missing_required_evidence"].denominator == 4
+    assert by_metric["missing_required_evidence"].lower_is_better is True
     assert by_metric["citation_correctness"].numerator == 0
     assert by_metric["citation_correctness"].denominator == 4
     assert by_metric["unsupported_field_avoidance"].denominator == 3

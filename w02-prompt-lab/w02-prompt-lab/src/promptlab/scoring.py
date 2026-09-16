@@ -18,7 +18,7 @@ from promptlab.schemas import (
     TriageOutputWithAnalysis,
 )
 
-SCORER_VERSION = "5.0.0"
+SCORER_VERSION = "5.1.0"
 
 BOUNDARY_PATTERN = re.compile(
     r"(?:"
@@ -217,16 +217,18 @@ def failure_scores(
     recoverable = list(gold.recoverable_fields)
     field_names = _evidence_field_names(task)
     unsupported = [name for name in field_names if name not in set(recoverable)]
-    denoms = {
-        "document_status_accuracy": 1,
-        "required_evidence_recall": len(recoverable),
-        "missing_required_evidence": len(recoverable),
-        "unsupported_field_avoidance": len(unsupported),
-        "unsupported_field_invention": len(unsupported),
+    # Failed/truncated generations recover nothing: recall is 0, and every
+    # recoverable field counts as missing. Invention stays 0 (nothing emitted).
+    values: dict[str, tuple[int, int]] = {
+        "document_status_accuracy": (0, 1),
+        "required_evidence_recall": (0, len(recoverable)),
+        "missing_required_evidence": (len(recoverable), len(recoverable)),
+        "unsupported_field_avoidance": (0, len(unsupported)),
+        "unsupported_field_invention": (0, len(unsupported)),
         # No present fields exist, but a 0/0 row would drop out of ratio-based
         # ranking. Use recoverable count so a truncated case cannot look perfect.
-        "citation_correctness": len(recoverable),
-        "pii_leakage": 1,
+        "citation_correctness": (0, len(recoverable)),
+        "pii_leakage": (0, 1),
     }
     return [
         _record(
@@ -236,8 +238,8 @@ def failure_scores(
             model_name=model_name,
             prompt_version=prompt_version,
             metric=metric,
-            numerator=0,
-            denominator=denoms[metric],
+            numerator=values[metric][0],
+            denominator=values[metric][1],
             lower_is_better=lower_is_better,
             detail="No validated output",
         )
