@@ -99,10 +99,13 @@ def schema_description(model: type[BaseModel]) -> str:
     The description is generated from the model definition so prompts never
     carry a hand-maintained copy of the output shape. It is deliberately not
     JSON, so the model cannot echo it back as if it were the answer object.
+
+    An ``analysis`` field is listed first so the model writes that reasoning
+    before decision fields such as ``queue``.
     """
     nested: list[type[BaseModel]] = []
     lines = ["Return ONE JSON object with exactly these top-level fields:"]
-    for name, field_info in model.model_fields.items():
+    for name, field_info in _fields_for_description(model):
         lines.append(_field_line(name, field_info, nested))
 
     index = 0
@@ -113,7 +116,7 @@ def schema_description(model: type[BaseModel]) -> str:
         lines.append(
             f"{nested_model.__name__} is itself a JSON object with exactly these fields:"
         )
-        for name, field_info in nested_model.model_fields.items():
+        for name, field_info in _fields_for_description(nested_model):
             lines.append(_field_line(name, field_info, nested))
 
     lines.append("")
@@ -124,6 +127,14 @@ def schema_description(model: type[BaseModel]) -> str:
         "schema text, and do not use Markdown."
     )
     return "\n".join(lines)
+
+
+def _fields_for_description(model: type[BaseModel]) -> list[tuple[str, FieldInfo]]:
+    """Return model fields with ``analysis`` first when present."""
+    items = list(model.model_fields.items())
+    analysis = [(name, info) for name, info in items if name == "analysis"]
+    rest = [(name, info) for name, info in items if name != "analysis"]
+    return analysis + rest
 
 
 def _field_line(name: str, field_info: FieldInfo, nested: list[type[BaseModel]]) -> str:

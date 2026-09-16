@@ -7,7 +7,13 @@ import json
 import pytest
 from pydantic import BaseModel
 
-from promptlab.schemas import PolicyExtraction, SummarizationOutput, schema_description
+from promptlab.schemas import (
+    PolicyExtraction,
+    SummarizationOutput,
+    TriageOutput,
+    TriageOutputWithAnalysis,
+    schema_description,
+)
 
 
 def test_policy_extraction_description_lists_every_field_name() -> None:
@@ -85,3 +91,21 @@ def test_description_does_not_model_a_wrapper_key() -> None:
 
     assert not description.startswith(f"{SummarizationOutput.__name__}:")
     assert "Do not wrap the object under another key" in description
+
+
+def _top_level_field_names(description: str) -> list[str]:
+    names: list[str] = []
+    for line in description.splitlines():
+        if not line.startswith("  "):
+            continue
+        names.append(line.strip().split(":", 1)[0])
+    return names
+
+
+def test_analysis_field_is_listed_first_for_v2() -> None:
+    v2_names = _top_level_field_names(schema_description(TriageOutputWithAnalysis))
+    v1_names = _top_level_field_names(schema_description(TriageOutput))
+
+    assert v2_names[0] == "analysis"
+    assert "analysis" not in v1_names
+    assert v2_names[1:] == v1_names
