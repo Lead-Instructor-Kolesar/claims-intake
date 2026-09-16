@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from promptlab.config import PII_PATTERNS, PROJECT_ROOT
 from promptlab.records import OutputRecord, ScoreRecord
+from promptlab.rules import VersionCandidate, select_current_version
 
 SCORER_VERSION = "day5.v1"
 GOLD_DIR = PROJECT_ROOT / "cases" / "gold"
@@ -70,6 +73,136 @@ def pii_leaks(texts: Mapping[str, str]) -> list[str]:
         for label, text in texts.items()
         if any(pattern.search(text) for pattern in PII_PATTERNS)
     )
+
+
+def _iso_date(value: Any) -> date | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError:
+        return None
+
+
+def candidate_from_output(
+    case_id: str, output: Mapping[str, Any] | None
+) -> VersionCandidate | None:
+    """Map a validated extraction or summary into a version-rule candidate.
+
+    Both version and effective_date must be present strings, and the date must
+    parse as ISO-8601. Anything else is extraction failure, not a candidate.
+    """
+    if output is None:
+        return None
+    version = output.get("version")
+    effective = output.get("effective_date")
+    if not isinstance(version, Mapping) or not isinstance(effective, Mapping):
+        return None
+    if version.get("status") != "present" or effective.get("status") != "present":
+        return None
+    version_value = version.get("value")
+    effective_date = _iso_date(effective.get("value"))
+    if not isinstance(version_value, str) or not version_value.strip():
+        return None
+    if effective_date is None:
+        return None
+    return VersionCandidate(
+        case_id=case_id,
+        version=version_value.strip(),
+        effective_date=effective_date,
+    )
+
+
+def _version_groups(
+    gold: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for case_id, row in gold.items():
+        name = row.get("version_group")
+        if not isinstance(name, str) or not name:
+            continue
+        info = groups.setdefault(
+            name,
+            {"case_ids": [], "expected": None, "as_of": None, "task": row.get("task")},
+        )
+        info["case_ids"].append(case_id)
+        expected = row.get("expected_current_case_id")
+        if isinstance(expected, str) and expected:
+            info["expected"] = expected
+        as_of = _iso_date(row.get("as_of"))
+        if as_of is not None:
+            info["as_of"] = as_of
+    return groups
+
+
+def score_version_selection(
+    *,
+    output_records: Sequence[OutputRecord],
+    gold: Mapping[str, Mapping[str, Any]],
+) -> list[ScoreRecord]:
+    """Score select_current_version against gold version groups.
+
+    One score per model/prompt identity and version group. The model never
+    chooses the current document; Python does, using extracted dates.
+    """
+    groups = {
+        name: info
+        for name, info in _version_groups(gold).items()
+        if len(info["case_ids"]) >= 2
+        and info["expected"] is not None
+        and info["as_of"] is not None
+    }
+    if not groups:
+        return []
+
+    buckets: dict[tuple[str, str, str, str, str], list[OutputRecord]] = defaultdict(
+        list
+    )
+    for record in output_records:
+        buckets[
+            (
+                record.run_id,
+                record.task,
+                record.model_id,
+                record.prompt_id,
+                record.prompt_version,
+            )
+        ].append(record)
+
+    scores: list[ScoreRecord] = []
+    for records in buckets.values():
+        by_id = {record.case_id: record for record in records}
+        task = records[0].task
+        for group_name, info in groups.items():
+            if info["task"] not in (None, task):
+                continue
+            members = [case_id for case_id in info["case_ids"] if case_id in by_id]
+            if not members:
+                continue
+            candidates: list[VersionCandidate] = []
+            for case_id in members:
+                candidate = candidate_from_output(case_id, by_id[case_id].output)
+                if candidate is not None:
+                    candidates.append(candidate)
+            selected = select_current_version(candidates, info["as_of"])
+            expected = info["expected"]
+            correct = selected is not None and selected.case_id == expected
+            anchor = by_id.get(expected, by_id[members[0]])
+            selected_id = selected.case_id if selected is not None else None
+            scores.append(
+                _record(
+                    anchor,
+                    "version_selection",
+                    int(correct),
+                    1,
+                    detail=(
+                        f"group={group_name} expected={expected} "
+                        f"selected={selected_id} "
+                        f"candidates={[candidate.case_id for candidate in candidates]}"
+                    ),
+                )
+            )
+    return scores
 
 
 def _field_text(field: Mapping[str, Any]) -> str:
