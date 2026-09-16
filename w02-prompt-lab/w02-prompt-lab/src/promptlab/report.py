@@ -401,7 +401,7 @@ def _write_decision(
     if keys:
         for task, model, prompt in keys:
             lines.append(
-                f"- `{task}` — {model} — `{_prompt_label(task, model, prompt)}`"
+                f"- `{task}` / {model} / `{_prompt_label(task, model, prompt)}`"
             )
     else:
         lines.append("- No configurations supplied.")
