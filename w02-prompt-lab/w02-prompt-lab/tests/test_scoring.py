@@ -4,7 +4,7 @@ from pathlib import Path
 
 from promptlab.records import ScoreRecord
 from promptlab.schemas import TriageOutput
-from promptlab.scoring import score_triage
+from promptlab.scoring import SCORER_VERSION, score_triage
 
 
 def _output(**overrides: object) -> TriageOutput:
@@ -262,7 +262,7 @@ def test_missing_output_scores_zeros() -> None:
         assert score.denominator == 1
         assert score.detail == "No validated output"
         assert score.task == "triage"
-        assert score.scorer_version == "4.0.0"
+        assert score.scorer_version == SCORER_VERSION
 
 
 def test_scoring_module_does_not_call_models() -> None:
