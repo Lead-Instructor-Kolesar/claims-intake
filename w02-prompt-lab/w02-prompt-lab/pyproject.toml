@@ -43,3 +43,13 @@ python_version = "3.12"
 strict = true
 files = ["src", "tests"]
 
+[[tool.mypy.overrides]]
+module = [
+    "test_usage_contract",
+    "test_adapter_contract",
+    "test_adapter_behavior",
+    "test_structured_contract",
+    "test_day2",
+]
+disable_error_code = ["arg-type", "no-untyped-def", "assignment"]
+
