@@ -181,22 +181,30 @@ def add_version_scores(
 ) -> list[ScoreRecord]:
     grouped: dict[str, list[GoldLabel]] = defaultdict(list)
     for label in labels:
-        if label.version_group:
-            grouped[label.version_group].append(label)
+        group_name = getattr(label, "version_group", None)
+        if isinstance(group_name, str) and group_name:
+            grouped[group_name].append(label)
     records: list[ScoreRecord] = []
     for group_name, group_labels in grouped.items():
         if len(group_labels) < 2:
             continue
         expected = next(
             (
-                label.expected_current_case_id
+                getattr(label, "expected_current_case_id", None)
                 for label in group_labels
-                if label.expected_current_case_id
+                if getattr(label, "expected_current_case_id", None)
             ),
             None,
         )
-        as_of_raw = next((label.as_of for label in group_labels if label.as_of), None)
-        if expected is None or as_of_raw is None:
+        as_of_raw = next(
+            (
+                getattr(label, "as_of", None)
+                for label in group_labels
+                if getattr(label, "as_of", None)
+            ),
+            None,
+        )
+        if not isinstance(expected, str) or not isinstance(as_of_raw, str):
             continue
         candidates: list[VersionCandidate] = []
         for label in group_labels:
@@ -287,7 +295,9 @@ def main() -> None:
             model = settings.models[model_name]
             adapter = adapters[model_name]
             for case, gold in pairs:
-                _pid, _ver, system, user, _schema = render_request_layers(task, case.source)
+                _pid, _ver, system, user, _schema = render_request_layers(
+                    task, case.document_text
+                )
                 request = CompletionRequest(
                     task=task,
                     case_id=case.id,
@@ -334,7 +344,7 @@ def main() -> None:
                         prompt_version=prompt_version,
                         output=parsed,
                         gold=gold,
-                        source=case.source,
+                        source=case.document_text,
                     )
                     if parsed is not None
                     else failure_scores(

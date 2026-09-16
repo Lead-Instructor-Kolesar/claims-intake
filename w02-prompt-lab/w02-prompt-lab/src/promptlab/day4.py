@@ -13,7 +13,8 @@ from pydantic import BaseModel, ValidationError
 from promptlab.adapters.base import CompletionRequest, CompletionResult
 from promptlab.adapters.ollama import OllamaAdapter
 from promptlab.config import PROJECT_ROOT, Settings
-from promptlab.corpus import GoldLabel, load_gold
+from promptlab.corpus import GoldLabel
+from promptlab.corpus import load_cases as load_labeled_cases
 from promptlab.prompts import load, render_user
 from promptlab.records import OutputRecord, ScoreRecord, append_record
 from promptlab.schemas import TriageOutput, TriageOutputWithAnalysis, schema_description
@@ -266,7 +267,7 @@ def main() -> None:
     model = settings.models["mistral"]
     adapter = OllamaAdapter(model_id=model.model_id, base_url=settings.ollama_base_url)
     cases = load_cases(PROJECT_ROOT / "cases" / "triage.jsonl")
-    gold = load_gold("triage")
+    gold = {case.id: label for case, label in load_labeled_cases("triage")}
 
     all_outputs: list[OutputRecord] = []
     all_scores: list[ScoreRecord] = []
