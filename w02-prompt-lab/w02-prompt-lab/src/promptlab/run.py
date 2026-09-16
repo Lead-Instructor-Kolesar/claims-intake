@@ -272,10 +272,17 @@ def run_evaluation(
     usage_path = run_dir / "usage.jsonl"
     outputs_path = run_dir / "outputs.jsonl"
     scores_path = run_dir / "scores.jsonl"
+    # Fresh files for this evaluation so re-runs cannot append stale attempts.
+    for path in (usage_path, outputs_path, scores_path):
+        path.write_text("", encoding="utf-8")
+    call_log = Path("runs") / f"{run_id}.jsonl"
+    call_log.parent.mkdir(parents=True, exist_ok=True)
+    call_log.write_text("", encoding="utf-8")
 
     all_usage: list[UsageRecord] = []
     all_outputs: list[OutputRecord] = []
     all_scores: list[ScoreRecord] = []
+    all_calls: list[CallRecord] = []
     validated: dict[tuple[TaskName, str], dict[str, StrictModel]] = defaultdict(dict)
     labels_by_task: dict[TaskName, list[GoldLabel]] = {}
     prompt_versions: dict[TaskName, str] = {}
@@ -324,6 +331,7 @@ def run_evaluation(
 
                 for call in adapter.records:
                     append_call_record(call, run_id)
+                    all_calls.append(call)
 
                 usage_rows = _classify_usage(
                     run_id=run_id,
@@ -402,6 +410,7 @@ def run_evaluation(
         scores=all_scores,
         docs_run_path=docs_run_path,
         docs_scores_path=docs_scores_path,
+        calls=all_calls,
     )
     write_reports(
         run_id=run_id,
@@ -422,6 +431,7 @@ def _write_day5_docs(
     scores: list[ScoreRecord],
     docs_run_path: Path,
     docs_scores_path: Path,
+    calls: list[CallRecord] | None = None,
 ) -> None:
     docs_run_path.parent.mkdir(parents=True, exist_ok=True)
     grouped: dict[tuple[str, str, str], list[UsageRecord]] = defaultdict(list)
@@ -429,6 +439,9 @@ def _write_day5_docs(
         grouped[(row.task, row.model_name, row.case_id)].append(row)
 
     lines: list[str] = []
+    # Exact CallRecord attempts first so scores can join through usage/output to runtime evidence.
+    for call in calls or []:
+        lines.append(call.model_dump_json())
     for output in outputs:
         key = (output.task, output.model_name, output.case_id)
         for usage_row in grouped.get(key, []):

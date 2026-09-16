@@ -36,12 +36,16 @@ def test_day5_evidence_shared_run_and_coverage() -> None:
     score_rows = _load_jsonl(DOCS_SCORES)
     outputs = [row for row in run_rows if "succeeded" in row]
     usage = [row for row in run_rows if "kind" in row]
+    calls = [row for row in run_rows if "record_id" in row and "input_tokens" in row]
     assert outputs, "day5-run.jsonl must include OutputRecord rows"
     assert usage, "day5-run.jsonl must include UsageRecord rows"
+    assert calls, "day5-run.jsonl must include CallRecord attempts"
+    assert len(calls) == len(usage)
     run_ids = {str(row["run_id"]) for row in outputs}
     assert len(run_ids) == 1
     assert run_ids == {str(row["run_id"]) for row in score_rows}
     assert run_ids == {str(row["run_id"]) for row in usage}
+    assert run_ids == {str(row["run_id"]) for row in calls}
 
     for task in ("triage", "summarization", "extraction"):
         for model in ("mistral", "qwen"):
@@ -51,6 +55,29 @@ def test_day5_evidence_shared_run_and_coverage() -> None:
                 if row["task"] == task and row["model_name"] == model
             }
             assert len(case_ids) == 12, f"{task}/{model} expected 12 cases, got {case_ids}"
+
+    # Instructor join key: score -> output/usage without guessing.
+    output_keys = {
+        (
+            str(row["run_id"]),
+            str(row["task"]),
+            str(row["case_id"]),
+            str(row["model_name"]),
+            str(row["prompt_version"]),
+        )
+        for row in outputs
+    }
+    for score in score_rows:
+        if score.get("metric") == "version_selection_accuracy":
+            continue
+        key = (
+            str(score["run_id"]),
+            str(score["task"]),
+            str(score["case_id"]),
+            str(score["model_name"]),
+            str(score["prompt_version"]),
+        )
+        assert key in output_keys
 
 
 def test_day5_evidence_boundary_and_no_pii() -> None:

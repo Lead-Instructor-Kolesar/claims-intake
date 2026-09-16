@@ -9,14 +9,14 @@ Counts are reported with their denominators. Latency uses median and maximum rat
 | Model | Prompt | Quality | Input tokens/case | Output tokens/case | Median latency | Max latency | n | Repairs | Retries | Failures |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | mistral | extract.v2 | citation_correctness: 73/73<br>document_status_accuracy: 9/12<br>missing_required_evidence: 3/72 ↓<br>pii_leakage: 0/12 ↓<br>required_evidence_recall: 69/72<br>unsupported_field_avoidance: 8/12<br>unsupported_field_invention: 4/12 ↓<br>version_selection_accuracy: 1/1 | 2027.9 | 389.9 | 35756.5 ms | 48333 ms | 12 | 0 | 0 | 0 |
-| qwen | extract.v2 (transfer) | citation_correctness: 62/74<br>document_status_accuracy: 9/12<br>missing_required_evidence: 0/72 ↓<br>pii_leakage: 0/12 ↓<br>required_evidence_recall: 60/72<br>unsupported_field_avoidance: 8/12<br>unsupported_field_invention: 2/12 ↓<br>version_selection_accuracy: 1/1 | 1675.9 | 1446.1 | 138450 ms | 180005 ms | 13 | 0 | 1 | 2 |
+| qwen | extract.v2 (transfer) | citation_correctness: 62/74<br>document_status_accuracy: 9/12<br>missing_required_evidence: 12/72 ↓<br>pii_leakage: 0/12 ↓<br>required_evidence_recall: 60/72<br>unsupported_field_avoidance: 8/12<br>unsupported_field_invention: 2/12 ↓<br>version_selection_accuracy: 1/1 | 1675.9 | 1446.1 | 138450 ms | 180005 ms | 13 | 0 | 1 | 2 |
 
 ## Summarization
 
 | Model | Prompt | Quality | Input tokens/case | Output tokens/case | Median latency | Max latency | n | Repairs | Retries | Failures |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | mistral | summarize.v1 | citation_correctness: 60/63<br>document_status_accuracy: 9/12<br>missing_required_evidence: 1/60 ↓<br>pii_leakage: 0/12 ↓<br>required_evidence_recall: 59/60<br>unsupported_field_avoidance: 8/12<br>unsupported_field_invention: 4/12 ↓<br>version_selection_accuracy: 1/1 | 1365.2 | 301.8 | 25276.5 ms | 36057 ms | 12 | 0 | 0 | 0 |
-| qwen | summarize.v1 (transfer) | citation_correctness: 56/61<br>document_status_accuracy: 11/12<br>missing_required_evidence: 0/60 ↓<br>pii_leakage: 0/12 ↓<br>required_evidence_recall: 55/60<br>unsupported_field_avoidance: 10/12<br>unsupported_field_invention: 1/12 ↓<br>version_selection_accuracy: 1/1 | 1130.2 | 835.2 | 62794 ms | 180009 ms | 13 | 0 | 1 | 1 |
+| qwen | summarize.v1 (transfer) | citation_correctness: 56/61<br>document_status_accuracy: 11/12<br>missing_required_evidence: 5/60 ↓<br>pii_leakage: 0/12 ↓<br>required_evidence_recall: 55/60<br>unsupported_field_avoidance: 10/12<br>unsupported_field_invention: 1/12 ↓<br>version_selection_accuracy: 1/1 | 1130.2 | 835.2 | 62794 ms | 180009 ms | 13 | 0 | 1 | 1 |
 
 ## Triage
 
