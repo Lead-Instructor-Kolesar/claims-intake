@@ -202,6 +202,14 @@ def _select_config(task: str, configs: Sequence[_ConfigStats]) -> _ConfigStats |
     return sorted(eligible, key=sort_key)[0]
 
 
+def _failure_clause(stats: _ConfigStats) -> str:
+    if stats.failures == 1:
+        return "; 1 generation failure scored as zeros"
+    if stats.failures > 1:
+        return f"; {stats.failures} generation failures scored as zeros"
+    return "; no generation failures"
+
+
 def _selection_reason(task: str, winner: _ConfigStats) -> str:
     metrics = winner.metrics
     if task == "triage":
@@ -212,6 +220,7 @@ def _selection_reason(task: str, winner: _ConfigStats) -> str:
             f"highest queue_accuracy ({queue[0]}/{queue[1]}), then escalation_accuracy "
             f"({escalation[0]}/{escalation[1]}), then fewer missed escalations "
             f"({missed[0]}/{missed[1]})"
+            f"{_failure_clause(winner)}"
         )
     recall = metrics.get("required_evidence_recall", (0, 0, None))
     citation = metrics.get("citation_correctness", (0, 0, None))
@@ -220,6 +229,7 @@ def _selection_reason(task: str, winner: _ConfigStats) -> str:
         f"highest required_evidence_recall ({recall[0]}/{recall[1]}), then "
         f"citation_correctness ({citation[0]}/{citation[1]}), then "
         f"unsupported_field_avoidance ({avoidance[0]}/{avoidance[1]})"
+        f"{_failure_clause(winner)}"
     )
 
 
@@ -332,30 +342,47 @@ def _write_report(
     model_clause = (
         f" (`{'`, `'.join(evaluated_models)}`)." if evaluated_models else "."
     )
-    lines.extend(
+    model_count_phrase = (
+        "both evaluated models" if len(evaluated_models) >= 2 else "the evaluated model"
+    )
+    failed = sum(stat.failures for rows in stats_by_task.values() for stat in rows)
+    limits = [
+        "## Human boundary",
+        "",
+        f"Draft replies were checked for customer-outcome language under {model_count_phrase}"
+        f"{model_clause}",
+        "A configuration with any human-boundary failure or PII leak is disqualified "
+        "from selection.",
+        "",
+        "## Limits",
+        "",
+        "- Each task uses a fixed 12-case sample; treat counts as lab evidence, not "
+        "production-scale precision.",
+        "- Transfer rows reuse prompts developed on the home model; they are not proof "
+        "of the best adapted prompt for the transferred model.",
+        "- Untested combinations (other prompt versions, temperatures, or models) are "
+        "out of scope for this run.",
+        "- Latency and throughput depend on local hardware and Ollama runtime state.",
+        f"- Both models used a shared max_output_tokens of {MAX_OUTPUT_TOKENS}.",
+    ]
+    if failed == 1:
+        limits.append(
+            "- 1 evaluation produced no validated output (including truncated "
+            "generations) and was scored as zeros; that row affects recall ranking."
+        )
+    elif failed:
+        limits.append(
+            f"- {failed} evaluations produced no validated output (including truncated "
+            "generations) and were scored as zeros; those rows affect recall ranking."
+        )
+    limits.extend(
         [
-            "## Human boundary",
-            "",
-            "Draft replies were checked for customer-outcome language under both evaluated "
-            f"models{model_clause}",
-            "A configuration with any human-boundary failure or PII leak is disqualified "
-            "from selection.",
-            "",
-            "## Limits",
-            "",
-            "- Each task uses a fixed 12-case sample; treat counts as lab evidence, not "
-            "production-scale precision.",
-            "- Transfer rows reuse prompts developed on the home model; they are not proof "
-            "of the best adapted prompt for the transferred model.",
-            "- Untested combinations (other prompt versions, temperatures, or models) are "
-            "out of scope for this run.",
-            "- Latency and throughput depend on local hardware and Ollama runtime state.",
-            f"- Both models used a shared max_output_tokens of {MAX_OUTPUT_TOKENS}.",
             "- This report does not claim production readiness or invent a dollar cost "
             "comparison; local provider charge remains `$0.00`.",
             "",
         ]
     )
+    lines.extend(limits)
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(lines), encoding="utf-8")
@@ -439,7 +466,12 @@ def _write_decision(
                     summary = "no primary metric"
                 else:
                     summary = f"{queue_or_recall[0]}/{queue_or_recall[1]}"
-                note = "disqualified" if config.disqualified else summary
+                if config.disqualified:
+                    note = "disqualified"
+                elif config.failures:
+                    note = f"{summary}, {config.failures} failed"
+                else:
+                    note = summary
                 bits.append(
                     f"{model_name}/{_prompt_label(task, model_name, prompt_version)} ({note})"
                 )

@@ -277,8 +277,6 @@ def test_full_harness_offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
         for row in outputs
     }
     for score in scores:
-        if score.metric == "version_selection_accuracy":
-            continue
         key = (
             score.run_id,
             score.task,

@@ -223,7 +223,9 @@ def failure_scores(
         "missing_required_evidence": len(recoverable),
         "unsupported_field_avoidance": len(unsupported),
         "unsupported_field_invention": len(unsupported),
-        "citation_correctness": 0,
+        # No present fields exist, but a 0/0 row would drop out of ratio-based
+        # ranking. Use recoverable count so a truncated case cannot look perfect.
+        "citation_correctness": len(recoverable),
         "pii_leakage": 1,
     }
     return [

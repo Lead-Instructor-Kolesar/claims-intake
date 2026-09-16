@@ -247,6 +247,8 @@ def test_failure_scores_keep_denominators() -> None:
     by_metric = {score.metric: score for score in scores}
     assert by_metric["required_evidence_recall"].numerator == 0
     assert by_metric["required_evidence_recall"].denominator == 4
+    assert by_metric["citation_correctness"].numerator == 0
+    assert by_metric["citation_correctness"].denominator == 4
     assert by_metric["unsupported_field_avoidance"].denominator == 3
     assert by_metric["document_status_accuracy"].denominator == 1
     assert all(score.detail == "No validated output" for score in scores)

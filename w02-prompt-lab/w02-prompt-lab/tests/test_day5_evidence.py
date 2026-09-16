@@ -5,9 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from promptlab.config import PII_PATTERNS, PROJECT_ROOT
-from promptlab.schemas import TriageOutput
-from promptlab.scoring import SCORER_VERSION, _boundary_holds
+from promptlab.config import PROJECT_ROOT
+from promptlab.schemas import PolicyExtraction, SummarizationOutput, TriageOutput
+from promptlab.scoring import (
+    SCORER_VERSION,
+    _boundary_holds,
+    _evidence_free_text,
+    _has_pii,
+    _triage_free_text,
+)
 
 DOCS_RUN = PROJECT_ROOT / "docs" / "day5-run.jsonl"
 DOCS_SCORES = PROJECT_ROOT / "docs" / "day5-scores.jsonl"
@@ -29,10 +35,13 @@ def test_day5_evidence_shared_run_and_coverage() -> None:
     run_rows = _load_jsonl(DOCS_RUN)
     score_rows = _load_jsonl(DOCS_SCORES)
     outputs = [row for row in run_rows if "succeeded" in row]
+    usage = [row for row in run_rows if "kind" in row]
     assert outputs, "day5-run.jsonl must include OutputRecord rows"
+    assert usage, "day5-run.jsonl must include UsageRecord rows"
     run_ids = {str(row["run_id"]) for row in outputs}
     assert len(run_ids) == 1
     assert run_ids == {str(row["run_id"]) for row in score_rows}
+    assert run_ids == {str(row["run_id"]) for row in usage}
 
     for task in ("triage", "summarization", "extraction"):
         for model in ("mistral", "qwen"):
@@ -60,19 +69,22 @@ def test_day5_evidence_boundary_and_no_pii() -> None:
         assert isinstance(payload, dict)
         parsed = TriageOutput.model_validate(payload)
         assert _boundary_holds(parsed)
+        assert not _has_pii(_triage_free_text(parsed))
 
     for row in outputs:
         if not row.get("succeeded") or not row.get("output"):
             continue
         payload = row["output"]
         assert isinstance(payload, dict)
-        blobs = [
-            str(payload[key])
-            for key in ("draft_reply", "rationale", "analysis")
-            if isinstance(payload.get(key), str)
-        ]
-        free_text = "\n".join(blobs)
-        assert not any(pattern.search(free_text) for pattern in PII_PATTERNS)
+        task = str(row["task"])
+        if task == "triage":
+            continue
+        if task == "summarization":
+            parsed_sum = SummarizationOutput.model_validate(payload)
+            assert not _has_pii(_evidence_free_text(parsed_sum))
+        elif task == "extraction":
+            parsed_ext = PolicyExtraction.model_validate(payload)
+            assert not _has_pii(_evidence_free_text(parsed_ext))
 
 
 def test_day5_evidence_scorer_version() -> None:
