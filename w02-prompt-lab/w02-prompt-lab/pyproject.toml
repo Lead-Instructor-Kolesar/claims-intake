@@ -50,6 +50,9 @@ module = [
     "test_adapter_behavior",
     "test_structured_contract",
     "test_day2",
+    "test_scoring",
+    "test_report",
+    "test_rules_contract",
 ]
 disable_error_code = ["arg-type", "no-untyped-def", "assignment"]
 
