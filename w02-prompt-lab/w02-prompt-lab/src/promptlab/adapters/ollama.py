@@ -87,6 +87,7 @@ class OllamaAdapter:
                     "model": self.model_id,
                     "prompt": f"{request.system}\n\n{request.user_content}",
                     "stream": False,
+                    "think": False,
                     "options": {
                         "temperature": request.temperature,
                         "num_predict": request.max_output_tokens,
