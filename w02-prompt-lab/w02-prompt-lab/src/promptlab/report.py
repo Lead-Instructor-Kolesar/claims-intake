@@ -15,7 +15,6 @@ from typing import Any
 
 from promptlab.records import OutputRecord, ScoreRecord, UsageRecord
 
-
 _ConfigKey = tuple[str, str, str]  # task, model_name, prompt_version
 
 
@@ -57,11 +56,9 @@ def _aggregate_scores(
             for value in (getattr(row, "lower_is_better", None) for row in rows)
             if value is not None
         }
-        lower_is_better: bool | None
-        if len(directions) == 1:
-            lower_is_better = next(iter(directions))
-        else:
-            lower_is_better = None
+        lower_is_better: bool | None = (
+            next(iter(directions)) if len(directions) == 1 else None
+        )
 
         result[metric] = (numerator, denominator, lower_is_better)
 
@@ -109,12 +106,6 @@ def _usage_summary(
 
     # A semantic repair is a separate model request and should not also be
     # reported as a transport retry merely because it has an attempt number.
-    repair_attempts = sum(
-        1
-        for row in records
-        if str(getattr(row, "kind", "")).lower() == "repair"
-    )
-
     retry_attempts = sum(
         1
         for row in records
