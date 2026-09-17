@@ -24,6 +24,9 @@ class ModelConfig:
     model_id: str
     input_usd_per_million: Decimal = Decimal("0")
     output_usd_per_million: Decimal = Decimal("0")
+    # None never sends a thinking flag to Ollama; True/False fix the toggle.
+    # The fixed value is part of the measured configuration.
+    think: bool | None = None
 
     def cost(self, prompt_tokens: int, completion_tokens: int) -> Decimal:
         million = Decimal(1_000_000)
@@ -31,6 +34,19 @@ class ModelConfig:
             Decimal(prompt_tokens) * self.input_usd_per_million / million
             + Decimal(completion_tokens) * self.output_usd_per_million / million
         )
+
+
+def _env_think(name: str, default: bool | None = None) -> bool | None:
+    """Parse a thinking-mode toggle from the environment; unset uses default."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"true", "1", "on", "yes"}:
+        return True
+    if normalized in {"false", "0", "off", "no"}:
+        return False
+    raise ValueError(f"{name} must be a boolean, got {raw!r}")
 
 
 @dataclass(frozen=True)
@@ -53,8 +69,18 @@ class Settings:
                 "OLLAMA_BASE_URL", "http://host.docker.internal:11434"
             ).rstrip("/"),
             models={
-                "mistral": ModelConfig(logical_name="mistral", model_id=model_a),
-                "qwen": ModelConfig(logical_name="qwen", model_id=model_b),
+                "mistral": ModelConfig(
+                    logical_name="mistral",
+                    model_id=model_a,
+                    think=_env_think("MODEL_A_THINK"),
+                ),
+                # qwen3 exposes a thinking mode; the comparison fixes it off so
+                # every measured row runs the same deterministic configuration.
+                "qwen": ModelConfig(
+                    logical_name="qwen",
+                    model_id=model_b,
+                    think=_env_think("MODEL_B_THINK", default=False),
+                ),
             },
             temperature=float(os.getenv("TEMPERATURE", "0.0")),
             max_retries=int(os.getenv("MAX_RETRIES", "2")),

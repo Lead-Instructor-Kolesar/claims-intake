@@ -36,6 +36,17 @@ class OllamaAdapter:
         settings = Settings.from_env()
         max_attempts = min(1 + settings.max_retries, 3)
         url = f"{settings.ollama_base_url}/api/generate"
+        # Provider-specific reasoning controls stay behind this adapter
+        # boundary and come from configuration, never from call sites.
+        model_config = next(
+            (
+                config
+                for config in settings.models.values()
+                if config.model_id == self.model_id
+            ),
+            None,
+        )
+        think = model_config.think if model_config is not None else None
         records: list[CallRecord] = []
 
         for attempt in range(1, max_attempts + 1):
@@ -47,19 +58,18 @@ class OllamaAdapter:
 
             try:
                 try:
-                    response = httpx.post(
-                        url,
-                        json={
-                            "model": self.model_id,
-                            "prompt": f"{request.system}\n\n{request.user_content}",
-                            "stream": False,
-                            "options": {
-                                "temperature": request.temperature,
-                                "num_predict": request.max_output_tokens,
-                            },
+                    body = {
+                        "model": self.model_id,
+                        "prompt": f"{request.system}\n\n{request.user_content}",
+                        "stream": False,
+                        "options": {
+                            "temperature": request.temperature,
+                            "num_predict": request.max_output_tokens,
                         },
-                        timeout=180.0,
-                    )
+                    }
+                    if think is not None:
+                        body["think"] = think
+                    response = httpx.post(url, json=body, timeout=180.0)
                 except (httpx.TimeoutException, httpx.TransportError) as exc:
                     raise TransientProviderError(str(exc)) from exc
 

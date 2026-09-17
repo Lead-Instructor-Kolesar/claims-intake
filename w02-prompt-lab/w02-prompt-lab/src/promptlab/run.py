@@ -454,6 +454,28 @@ def _load_call_records(run_id: str) -> list[CallRecord]:
     return records
 
 
+def _thinking_note(settings: Settings) -> str | None:
+    """One-line record of the fixed reasoning settings, or None if unset."""
+    parts: list[str] = []
+    for logical, config in sorted(settings.models.items()):
+        if config.think is None:
+            continue
+        mode = "on" if config.think else "off"
+        parts.append(f"{logical} ({config.model_id}) thinking {mode}")
+    if not parts:
+        return None
+    return "Fixed reasoning setting behind the adapter: " + "; ".join(parts) + "."
+
+
+def _append_thinking_note(report_path: Path, settings: Settings) -> None:
+    """Record the fixed reasoning setting in the report's limits section."""
+    note = _thinking_note(settings)
+    if not note:
+        return
+    with report_path.open("a", encoding="utf-8") as handle:
+        handle.write(f"- {note}\n")
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the Week 2 three-task local model comparison."
@@ -493,6 +515,12 @@ def validate_only(task_names: Sequence[TaskName]) -> None:
     """Preflight every task without touching Ollama."""
     counts = validate_corpus()
     print(f"corpus counts: {counts}")
+    settings = Settings.from_env()
+    for logical, config in sorted(settings.models.items()):
+        mode = "unset (flag not sent)" if config.think is None else (
+            "on" if config.think else "off"
+        )
+        print(f"model {logical}: {config.model_id} thinking={mode}")
     for task in task_names:
         spec = TASK_SPECS[task]
         pairs = _load_task_pairs(task, limit=None)
@@ -615,10 +643,12 @@ def main() -> None:
         report_path=REPORT_PATH,
         decision_path=DECISION_PATH,
     )
+    _append_thinking_note(REPORT_PATH, settings)
 
     succeeded = sum(1 for record in outputs if record.succeeded)
     print(f"run_id={run_id}")
     print(f"evaluations={len(outputs)} succeeded={succeeded} scores={len(scores)}")
+    print(_thinking_note(settings) or "reasoning setting: no fixed thinking flags configured")
     print(f"call_records={RUNS_DIR / (run_id + '.jsonl')}")
     print(f"run_outputs={RUN_OUTPUTS_PATH}")
     print(f"scores={SCORES_PATH}")
