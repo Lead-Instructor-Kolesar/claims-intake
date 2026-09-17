@@ -102,7 +102,7 @@ def load_gold(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def load_call_records(run_id: str) -> list[CallRecord]:
-    path = Path("runs") / f"{run_id}.jsonl"
+    path = RUNS_DIR / f"{run_id}.jsonl"
     if not path.exists():
         return []
     records: list[CallRecord] = []
@@ -407,7 +407,7 @@ def main() -> None:
     )
 
     print(f"run_id={run_id}")
-    print(f"call_records={Path('runs') / (run_id + '.jsonl')}")
+    print(f"call_records={RUNS_DIR / (run_id + '.jsonl')}")
     print(f"outputs={outputs_path}")
     print(f"evidence={EVIDENCE_PATH}")
     print(f"scores={SCORES_PATH}")
