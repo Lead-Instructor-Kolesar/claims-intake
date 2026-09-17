@@ -18,6 +18,7 @@ class StructuredCallTrace:
     repairs: int = 0
     first_error: str | None = None
     final_error: str | None = None
+    repair_record_ids: list[str] = field(default_factory=list)
 
 
 class StructuredCompletionError(RuntimeError):
@@ -70,6 +71,7 @@ def complete_structured[T: BaseModel](
         repair_result = adapter.complete(repair_request, run_id)
         trace.repairs = attempt
         trace.records.extend(repair_result.records)
+        trace.repair_record_ids.extend(call.record_id for call in repair_result.records)
         repair_text = repair_result.text
         if not repair_result.succeeded or repair_text is None:
             message = (
@@ -84,7 +86,6 @@ def complete_structured[T: BaseModel](
             trace.final_error = None
             return repair_outcome
         trace.final_error = repair_outcome
-
     raise StructuredCompletionError(
         f"no schema-valid response after {trace.repairs} repair attempt(s): {trace.final_error}",
         trace,
