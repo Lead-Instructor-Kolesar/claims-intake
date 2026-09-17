@@ -1,0 +1,8 @@
+{
+  "question_id": "q19",
+  "gold_chunk_ids": [],
+  "applicable_version": "v4.2",
+  "expected_behavior": "abstain",
+  "expected_abstention_reason": "evidence_insufficient",
+  "note": "The policy states a documentation trigger at 25 percent of partnership interest and states no beneficial ownership threshold. The nearest evidence is close enough to be quoted as the answer, which is the failure."
+}

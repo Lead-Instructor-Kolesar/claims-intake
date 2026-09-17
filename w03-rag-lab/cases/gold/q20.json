@@ -1,0 +1,8 @@
+{
+  "question_id": "q20",
+  "gold_chunk_ids": [],
+  "applicable_version": null,
+  "expected_behavior": "abstain",
+  "expected_abstention_reason": "outside_supported_scope",
+  "note": "A question about the status of one customer record. The corpus states requirements and holds no customer data. The review schedule is held by the customer master."
+}

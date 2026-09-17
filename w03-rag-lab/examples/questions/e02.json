@@ -1,0 +1,16 @@
+{
+  "question_id": "e02",
+  "question": "which jurisdictions count as listed",
+  "as_of": "2026-03-15",
+  "jurisdiction": "IE",
+  "entity_type": "partnership",
+  "gold": {
+    "gold_chunk_ids": [
+      "kyc-ie-0004:v4.2:3.5:0"
+    ],
+    "applicable_version": "v4.2",
+    "expected_behavior": "answer",
+    "expected_abstention_reason": null,
+    "note": ""
+  }
+}

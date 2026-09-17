@@ -1,0 +1,18 @@
+{
+  "question_id": "e04",
+  "question": "does Section 6.4 apply to a partnership registered outside the list in Appendix A, and what documents does it require",
+  "as_of": "2026-03-15",
+  "jurisdiction": "IE",
+  "entity_type": "partnership",
+  "gold": {
+    "gold_chunk_ids": [
+      "kyc-ie-0004:v4.2:4.2:0",
+      "kyc-ie-0004:v4.2:6.4:0",
+      "kyc-ie-0004:v4.2:3.5:0"
+    ],
+    "applicable_version": "v4.2",
+    "expected_behavior": "answer",
+    "expected_abstention_reason": null,
+    "note": "Two questions in one sentence, and a cross-reference the first pass will not reach."
+  }
+}

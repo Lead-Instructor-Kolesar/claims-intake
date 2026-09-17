@@ -1,0 +1,10 @@
+{
+  "question_id": "q10",
+  "gold_chunk_ids": [
+    "kyc-uk-0026:v4.1:2.3:0"
+  ],
+  "applicable_version": "v4.1",
+  "expected_behavior": "answer",
+  "expected_abstention_reason": null,
+  "note": ""
+}

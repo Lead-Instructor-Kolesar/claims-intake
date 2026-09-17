@@ -1,0 +1,11 @@
+{
+  "question_id": "q14",
+  "gold_chunk_ids": [
+    "cdp-ie-0018:v2.1:7.2:0",
+    "cdp-ie-0018:v2.1:6.1:0"
+  ],
+  "applicable_version": "v2.1",
+  "expected_behavior": "answer",
+  "expected_abstention_reason": null,
+  "note": "v2.2 is published but not yet effective at this date."
+}

@@ -1,0 +1,21 @@
+{
+  "name": "w03-rag-lab",
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/w03-rag-lab",
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PGHOST": "db",
+    "PGPORT": "5432",
+    "PGUSER": "rag",
+    "PGPASSWORD": "rag",
+    "PGDATABASE": "rag"
+  },
+  "postCreateCommand": "uv sync --frozen && bash .devcontainer/apply-migrations.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff", "ms-python.mypy-type-checker"]
+    }
+  }
+}

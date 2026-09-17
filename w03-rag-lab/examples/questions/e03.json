@@ -1,0 +1,17 @@
+{
+  "question_id": "e03",
+  "question": "what does compelling evidence mean for a representment",
+  "as_of": "2026-03-15",
+  "jurisdiction": "UK",
+  "entity_type": "private_limited_company",
+  "gold": {
+    "gold_chunk_ids": [
+      "cdp-uk-0030:v1.1:2.1:0",
+      "cdp-uk-0030:v1.1:9.1:0"
+    ],
+    "applicable_version": "v1.1",
+    "expected_behavior": "answer",
+    "expected_abstention_reason": null,
+    "note": ""
+  }
+}

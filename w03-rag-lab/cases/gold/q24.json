@@ -1,0 +1,8 @@
+{
+  "question_id": "q24",
+  "gold_chunk_ids": [],
+  "applicable_version": "v3.0",
+  "expected_behavior": "abstain",
+  "expected_abstention_reason": "evidence_insufficient",
+  "note": "The procedure states a provisional credit threshold and states no maximum dispute value."
+}

@@ -1,0 +1,10 @@
+{
+  "question_id": "q04",
+  "gold_chunk_ids": [
+    "kyc-ie-0004:v4.3:5.3:0"
+  ],
+  "applicable_version": "v4.3",
+  "expected_behavior": "answer",
+  "expected_abstention_reason": null,
+  "note": "Same question as q03 after v4.3 takes effect. The answer changes."
+}

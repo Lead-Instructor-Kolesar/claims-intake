@@ -1,0 +1,10 @@
+{
+  "question_id": "q17",
+  "gold_chunk_ids": [
+    "cmp-ie-0033:v1.0:4.5:0"
+  ],
+  "applicable_version": "v1.0",
+  "expected_behavior": "answer",
+  "expected_abstention_reason": null,
+  "note": ""
+}

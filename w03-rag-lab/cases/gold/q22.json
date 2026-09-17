@@ -1,0 +1,8 @@
+{
+  "question_id": "q22",
+  "gold_chunk_ids": [],
+  "applicable_version": null,
+  "expected_behavior": "abstain",
+  "expected_abstention_reason": "no_candidates",
+  "note": "No policy is held for that jurisdiction. The filter correctly empties the candidate set."
+}

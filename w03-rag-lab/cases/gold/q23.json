@@ -1,0 +1,8 @@
+{
+  "question_id": "q23",
+  "gold_chunk_ids": [],
+  "applicable_version": "v4.2",
+  "expected_behavior": "abstain",
+  "expected_abstention_reason": "evidence_conflicting",
+  "note": "Two documents are in force and disagree in framing. The policy retains from the review completion date or the relationship end date, whichever is later, and the manual retains from the end of the relationship. Both are reported with citations and neither is selected."
+}

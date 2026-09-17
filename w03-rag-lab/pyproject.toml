@@ -1,0 +1,64 @@
+[project]
+name = "w03-rag-lab"
+version = "0.1.0"
+description = "Week 3 lab: retrieval-augmented generation over a versioned policy corpus"
+requires-python = "==3.12.*"
+dependencies = [
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    "python-dotenv==1.2.3",
+    "psycopg[binary]==3.3.5",
+    "pgvector==0.5.0",
+    "numpy==2.5.3",
+    "tiktoken==0.14.0",
+    "anthropic==1.5.0",
+    "openai==3.13.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.7",
+    "mypy==2.3.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/promptlab", "src/rag"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# src/promptlab/ is the Week 2 end state, carried into Week 3 in place and not
+# modified. These rules would restyle code that Associates read verbatim in the
+# Week 2 articles and hold in their own repositories, so they are scoped off
+# here rather than applied. Nothing under src/rag/ is exempt.
+"src/promptlab/schemas.py" = ["UP046", "SIM102"]
+"src/promptlab/structured.py" = ["UP047"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["promptlab", "rag"]
+
+[[tool.mypy.overrides]]
+module = ["pgvector.*", "tiktoken.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "db: requires the Postgres service",
+    "network: requires a live provider endpoint",
+]
+addopts = "-m 'not db and not network'"

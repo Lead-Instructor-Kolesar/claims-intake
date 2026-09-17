@@ -1,0 +1,16 @@
+{
+  "question_id": "e01",
+  "question": "do we hold a beneficial owner list for a partnership or must we build one",
+  "as_of": "2026-03-15",
+  "jurisdiction": "IE",
+  "entity_type": "partnership",
+  "gold": {
+    "gold_chunk_ids": [
+      "kyc-ie-0004:v4.2:4.2:0"
+    ],
+    "applicable_version": "v4.2",
+    "expected_behavior": "answer",
+    "expected_abstention_reason": null,
+    "note": "Vocabulary gap. The analyst's words share almost nothing with the clause that answers them."
+  }
+}

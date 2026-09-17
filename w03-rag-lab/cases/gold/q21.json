@@ -1,0 +1,8 @@
+{
+  "question_id": "q21",
+  "gold_chunk_ids": [],
+  "applicable_version": null,
+  "expected_behavior": "abstain",
+  "expected_abstention_reason": "outside_supported_scope",
+  "note": "No document in the corpus covers the subject."
+}
