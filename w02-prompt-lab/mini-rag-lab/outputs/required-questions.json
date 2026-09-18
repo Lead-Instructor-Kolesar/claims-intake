@@ -1,0 +1,223 @@
+{
+  "passed": 6,
+  "total": 6,
+  "results": [
+    {
+      "id": "meals",
+      "question": "How much can I spend on food each day?",
+      "ok": true,
+      "checks": {
+        "at_most_three_chunks": true,
+        "distances_are_numbers": true,
+        "distances_ascending": true,
+        "expected_section_retrieved": true,
+        "has_citation": true,
+        "citation_section": true,
+        "not_refusal": true,
+        "mentions:65": true
+      },
+      "response": {
+        "answer": "You can spend up to $65 per day for meals while traveling overnight.",
+        "citation": {
+          "document": "Employee Expense Policy",
+          "version": "2.0",
+          "section": "1. Meals"
+        },
+        "retrieved_chunks": [
+          {
+            "section": "1. Meals",
+            "distance": 0.3010505950744661
+          },
+          {
+            "section": "5. Receipts",
+            "distance": 0.4034521324052047
+          },
+          {
+            "section": "2. Hotels",
+            "distance": 0.4628347101881528
+          }
+        ]
+      }
+    },
+    {
+      "id": "airfare",
+      "question": "Can I book first-class airfare?",
+      "ok": true,
+      "checks": {
+        "at_most_three_chunks": true,
+        "distances_are_numbers": true,
+        "distances_ascending": true,
+        "expected_section_retrieved": true,
+        "has_citation": true,
+        "citation_section": true,
+        "not_refusal": true,
+        "mentions:economy": true
+      },
+      "response": {
+        "answer": "Employees must purchase economy airfare. Business-class airfare requires written approval from a vice president.",
+        "citation": {
+          "document": "Employee Expense Policy",
+          "version": "2.0",
+          "section": "3. Airfare"
+        },
+        "retrieved_chunks": [
+          {
+            "section": "3. Airfare",
+            "distance": 0.2641822069553975
+          },
+          {
+            "section": "4. Ground Transportation",
+            "distance": 0.3869001735856453
+          },
+          {
+            "section": "1. Meals",
+            "distance": 0.41342966607648934
+          }
+        ]
+      }
+    },
+    {
+      "id": "hotels",
+      "question": "My hotel costs $250. What do I need?",
+      "ok": true,
+      "checks": {
+        "at_most_three_chunks": true,
+        "distances_are_numbers": true,
+        "distances_ascending": true,
+        "expected_section_retrieved": true,
+        "has_citation": true,
+        "citation_section": true,
+        "not_refusal": true,
+        "mentions:manager": true
+      },
+      "response": {
+        "answer": "You need a receipt for your hotel cost of $250 because it is an individual expense of more than $25. However, since the hotel costs $250 and the reimbursement limit for hotels is $225, you will only be reimbursed up to $225. If you want to be reimbursed for the full $250, you need a manager's approval before booking.",
+        "citation": {
+          "document": "Employee Expense Policy",
+          "version": "2.0",
+          "section": "2. Hotels"
+        },
+        "retrieved_chunks": [
+          {
+            "section": "2. Hotels",
+            "distance": 0.3142470253662426
+          },
+          {
+            "section": "5. Receipts",
+            "distance": 0.37408802744856695
+          },
+          {
+            "section": "1. Meals",
+            "distance": 0.40807573355882687
+          }
+        ]
+      }
+    },
+    {
+      "id": "receipts",
+      "question": "Do I need a receipt for a $20 taxi?",
+      "ok": true,
+      "checks": {
+        "at_most_three_chunks": true,
+        "distances_are_numbers": true,
+        "distances_ascending": true,
+        "expected_section_retrieved": true,
+        "has_citation": true,
+        "citation_section": true,
+        "not_refusal": true,
+        "mentions:receipt": true,
+        "mentions_any": true
+      },
+      "response": {
+        "answer": "No, you do not need a receipt for a $20 taxi.",
+        "citation": {
+          "document": "Employee Expense Policy",
+          "version": "2.0",
+          "section": "5. Receipts"
+        },
+        "retrieved_chunks": [
+          {
+            "section": "5. Receipts",
+            "distance": 0.31685725517648644
+          },
+          {
+            "section": "4. Ground Transportation",
+            "distance": 0.40246292571532005
+          },
+          {
+            "section": "3. Airfare",
+            "distance": 0.41997375135154025
+          }
+        ]
+      }
+    },
+    {
+      "id": "ground",
+      "question": "Can I claim a limousine upgrade?",
+      "ok": true,
+      "checks": {
+        "at_most_three_chunks": true,
+        "distances_are_numbers": true,
+        "distances_ascending": true,
+        "expected_section_retrieved": true,
+        "has_citation": true,
+        "citation_section": true,
+        "not_refusal": true,
+        "mentions_any": true
+      },
+      "response": {
+        "answer": "No, you cannot claim a limousine upgrade.",
+        "citation": {
+          "document": "Employee Expense Policy",
+          "version": "2.0",
+          "section": "4. Ground Transportation"
+        },
+        "retrieved_chunks": [
+          {
+            "section": "4. Ground Transportation",
+            "distance": 0.3206778737296163
+          },
+          {
+            "section": "3. Airfare",
+            "distance": 0.4791064905237009
+          },
+          {
+            "section": "1. Meals",
+            "distance": 0.483511367672813
+          }
+        ]
+      }
+    },
+    {
+      "id": "gym",
+      "question": "Does the company reimburse gym memberships?",
+      "ok": true,
+      "checks": {
+        "at_most_three_chunks": true,
+        "distances_are_numbers": true,
+        "distances_ascending": true,
+        "has_no_citation": true,
+        "is_refusal": true,
+        "mentions:does not answer": true
+      },
+      "response": {
+        "answer": "The provided policy does not answer this question.",
+        "citation": null,
+        "retrieved_chunks": [
+          {
+            "section": "4. Ground Transportation",
+            "distance": 0.3517915542900564
+          },
+          {
+            "section": "2. Hotels",
+            "distance": 0.3736239359780025
+          },
+          {
+            "section": "1. Meals",
+            "distance": 0.38012470371784957
+          }
+        ]
+      }
+    }
+  ]
+}
